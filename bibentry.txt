@@ -1,0 +1,9 @@
+% bibentry template for lsst.bib in https://github.com/lsst/lsst-texmf/blob/main/texmf/bibtex/bib/lsst.bib
+
+@DocuShare{SQR-069,
+   author = { Russ Allbery },
+    title = {Implementation decisions for RSP identity management},
+     year = 2022,
+    month = Jul,
+   handle = {SQR-069},
+      url = {https://sqr-069.lsst.io } }
