@@ -1,29 +1,26 @@
-:tocdepth: 1
-
-.. sectnum::
-
-.. Metadata such as the title, authors, and description are set in metadata.yaml
-
-.. TODO: Delete the note below before merging new content to the main branch.
-
-.. note::
-
-   **This technote is a work-in-progress.**
-
 Abstract
 ========
 
 Decisions and trade-offs made in the implementation of the identity management, authentication, and authorization component of the Rubin Science Platform.
 
-Add content here
-================
+Authentication
+==============
 
-Add content here.
-See the `reStructuredText Style Guide <https://developer.lsst.io/restructuredtext/style.html>`__ to learn how to create sections, links, images, tables, equations, and more.
+GitHub
+------
 
-.. Make in-text citations with: :cite:`bibkey`.
-.. Uncomment to use citations
-.. .. rubric:: References
-.. 
-.. .. bibliography:: local.bib lsstbib/books.bib lsstbib/lsst.bib lsstbib/lsst-dm.bib lsstbib/refs.bib lsstbib/refs_ads.bib
-..    :style: lsst_aa
+Organizational membership
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In the original GitHub integration, we used the token returned by GitHub from the OAuth 2.0 authorization flow to retrieve metadata from the user's account and then discarded it.
+
+However, only the organization and team membership at the time the user authorizes the OAuth App are passed to that app.
+The authorization is then remembered, and if the user authenticates to the same Science Platform again, they are not prompted again for what organization data to release.
+Instead, the prior authorization is reused, including the old organization data, and thus new team memberships are not picked up by the Science Platform.
+This means that even if the user logs out (destroying their Gafaelfawr session token and cookie) and logs back in, Gafaelfawr will not see any new organization information because the user will not have released it from the authorization screen.
+
+We solved this problem by retaining the GitHub token for the user's authentication by storing it in the user's encrypted Gafaelfawr session cookie.
+If the user explicitly logs out, that token is retrieved and used to revoke the user's OAuth App authorization.
+This forces the user back to the OAuth App authorization screen the next time they log in, which in turn causes GitHub to release updated organization information (subject to organization data visibility).
+
+Prior authorizations with incomplete information may still be reused if the user never explicitly logs out, only lets their cookies expire, but at least we can document that explicitly logging out and logging back in will fix any missing organizational data.
