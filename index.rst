@@ -1,7 +1,18 @@
 Abstract
 ========
 
-Decisions and trade-offs made in the implementation of the identity management, authentication, and authorization component of the Rubin Science Platform.
+The identity management, authentication, and authorization component of the Rubin Science Platform is responsible for maintaining a list of authorized users and their associated identity information, authenticating their access to the Science Platform, and determining which services they are permitted to use.
+This tech note collects the decisions, analysis, and trade-offs made in the implementation of the system.
+It collects historical background useful for understanding design and implementation decisions, but which may clutter other documents and distract from the details of the system as implemented.
+
+.. note::
+
+   This is part of a tech note series on identity management for the Rubin Science Platform.
+   The other two primary documents are DMTN-234_, which describes the high-level design; and DMTN-224_, which describes the implementation.
+   See the `references section of DMTN-224 <https://dmtn-224.lsst.io/#references>`__ for a complete list of related documents.
+
+.. _DMTN-234: https://dmtn-234.lsst.io/
+.. _DMTN-224: https://dmtn-224.lsst.io/
 
 Authentication
 ==============

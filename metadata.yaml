@@ -34,17 +34,26 @@ authors:
 # doi: 10.5281/zenodo.#####
 
 # Copyright statement
-copyright: "2022, Association of Universities for Research in Astronomy, Inc. (AURA)"
+copyright: >-
+  2022, Association of Universities for Research in Astronomy, Inc. (AURA)
 
 # Description. A short, 1-2 sentence statemement used by document indices.
-description: "Decisions and trade-offs made in the implementation of the identity management, authentication, and authorization component of the Rubin Science Platform."
+description: >
+  Decisions and trade-offs made in the implementation of the identity
+  management, authentication, and authorization component of the Rubin Science
+  Platform.
 
 # Abstract, if available
-# abstract: >
-#           Write your paragraph
-#           here with multiple lines.
-#
-#           You can have multiple paragraphs too.
+abstract: >
+  The identity management, authentication, and authorization component of the
+  Rubin Science Platform is responsible for maintaining a list of authorized
+  users and their associated identity information, authenticating their access
+  to the Science Platform, and determining which services they are permitted
+  to use.  This tech note collects the decisions, analysis, and trade-offs
+  made in the implementation of the system.  It collects historical background
+  useful for understanding design and implementation decisions, but which may
+  clutter other documents and distract from the details of the system as
+  implemented.
 
 # URL where this document is published by Read the Docs. e.g. http://sqr-001.lsst.codes
 url: "https://sqr-069.lsst.io"
