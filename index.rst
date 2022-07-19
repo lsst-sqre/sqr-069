@@ -14,6 +14,30 @@ It collects historical background useful for understanding design and implementa
 .. _DMTN-234: https://dmtn-234.lsst.io/
 .. _DMTN-224: https://dmtn-224.lsst.io/
 
+Federated identity
+==================
+
+We considered other approaches to accepting federated identity besides using CILogon_ and COmanage_.
+
+.. _CILogon: https://www.cilogon.org/
+.. _COmanage: https://www.incommon.org/software/comanage/
+
+Supporting InCommon directly was rejected as too complex; direct support of federated authentication is complex and requires a lot of ongoing maintenance work.
+
+There are several services that provide federated identity as a service.
+Most of them charge per user.
+Given the expected number of users of the eventual production Science Platform, CILogon and its COmanage service appeared to be the least expensive option.
+It also builds on a pre-existing project relationship and uses a service run by a team with extensive experience supporting federated authentication for universities and scientific collaborations.
+
+Subsequent to that decision, we became aware of Auth0_ and its B2C authentication service, which appears to be competitive with CILogon on cost and claims to also support federated identity.
+We have not done a deep investigation of that alternative.
+
+.. _Auth0: https://auth0.com/
+
+We considered using GitHub rather than InCommon as an identity source, and indeed used GitHub for some internal project deployments and for the data preview releases through DP0.2.
+However, not every expected eventual user of the Science Platform will have a GitHub account, and GitHub lacks COmanage's support for onboarding flows, approval, and self-managed groups.
+We also expect to make use of InCommon as a source of federated identity since it supports many of our expected users, and GitHub does not provide easy use of InCommon as a source of identities.
+
 Authentication
 ==============
 
