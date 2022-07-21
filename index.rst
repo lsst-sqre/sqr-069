@@ -73,3 +73,21 @@ Storage
 
 Gafaelfawr stores data in both a SQL database and in Redis.
 Use of two separate storage systems is unfortunate extra complexity, but Redis is poorly suited to store relational data about tokens or long-term history, while PostgreSQL is poorly suited for quickly handling a high volume of checks for token validity.
+
+Token UI
+========
+
+We considered serving the token UI using server-rendered HTML and a separate interface from the API, but decided against it for two reasons.
+First, having all changes made through the API (whether by API calls or via JavaScript) ensures that the API always has parity with the UI, ensures that every operation can be done via an API, and avoids duplicating some frontend code.
+Second, other Rubin-developed components of the Science Platform are using JavaScript with a common style dictionary to design APIs, so building the token UI using similar tools will make it easier to maintain a standard look and feel.
+
+For the initial release, the token UI was included with Gafaelfawr.
+It was written in JavaScript using React_ and minimized using Gatsby_.
+Gatsby is probably overkill for this small JavaScript UI, but was used because it was also used in other SQuaRE development.
+
+.. _React: https://reactjs.org/
+.. _Gatsby: https://www.gatsbyjs.com/
+
+Shipping the UI with Gafaelfawr turned out to be awkward, requiring a lot of build system work and noise from updating JavaScript dependencies.
+It also made it harder to give it a consistent style and integrate it properly with the rest of the Science Platform UI.
+The plan, therefore, is to move the logic of the UI into another Science Platform JavaScript UI service (possibly the one that provides the front page of the Science Platform) and remove the UI that's shipped with the Gafaelfawr Python application.
