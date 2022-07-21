@@ -2,8 +2,8 @@ Abstract
 ========
 
 The identity management, authentication, and authorization component of the Rubin Science Platform is responsible for maintaining a list of authorized users and their associated identity information, authenticating their access to the Science Platform, and determining which services they are permitted to use.
-This tech note collects the decisions, analysis, and trade-offs made in the implementation of the system.
-It collects historical background useful for understanding design and implementation decisions, but which may clutter other documents and distract from the details of the system as implemented.
+This tech note collects decisions, analysis, and trade-offs made in the implementation of the system that may be of future interest.
+The historical background here may be useful for understanding design and implementation decisions, but would clutter other documents and distract from the details of the system as implemented.
 
 .. note::
 
@@ -14,8 +14,11 @@ It collects historical background useful for understanding design and implementa
 .. _DMTN-234: https://dmtn-234.lsst.io/
 .. _DMTN-224: https://dmtn-224.lsst.io/
 
+Identity
+========
+
 Federated identity
-==================
+------------------
 
 We considered other approaches to accepting federated identity besides using CILogon_ and COmanage_.
 
@@ -38,14 +41,8 @@ We considered using GitHub rather than InCommon as an identity source, and indee
 However, not every expected eventual user of the Science Platform will have a GitHub account, and GitHub lacks COmanage's support for onboarding flows, approval, and self-managed groups.
 We also expect to make use of InCommon as a source of federated identity since it supports many of our expected users, and GitHub does not provide easy use of InCommon as a source of identities.
 
-Authentication
-==============
-
 GitHub
 ------
-
-Organizational membership
-^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In the original GitHub integration, we used the token returned by GitHub from the OAuth 2.0 authorization flow to retrieve metadata from the user's account and then discarded it.
 
@@ -59,3 +56,20 @@ If the user explicitly logs out, that token is retrieved and used to revoke the 
 This forces the user back to the OAuth App authorization screen the next time they log in, which in turn causes GitHub to release updated organization information (subject to organization data visibility).
 
 Prior authorizations with incomplete information may still be reused if the user never explicitly logs out, only lets their cookies expire, but at least we can document that explicitly logging out and logging back in will fix any missing organizational data.
+
+Authentication flows
+====================
+
+The protocol for HTTP Basic Authentication, using ``x-oauth-basic`` as either the username or password along with the token, is reportedly based on GitHub support for HTTP Basic Authentication.
+GitHub currently appears to recognize tokens wherever they're put and does not require the ``x-oauth-basic`` string.
+(This would likely be wise for Gafaelfawr to do as well, but it has not yet been implemented.)
+
+The password is probably the better place to put the token in HTTP Basic Authentication, since software will know to protect or obscure it, but common practice in other APIs that support using tokens for HTTP Basic Authentication is to use the username.
+Gafaelfawr therefore supports both.
+As a fallback, if neither username nor password is ``x-oauth-basic``, it assumes the username is the token, but this is not documented (except here) since we'd prefer users not use it.
+
+Storage
+=======
+
+Gafaelfawr stores data in both a SQL database and in Redis.
+Use of two separate storage systems is unfortunate extra complexity, but Redis is poorly suited to store relational data about tokens or long-term history, while PostgreSQL is poorly suited for quickly handling a high volume of checks for token validity.

@@ -49,11 +49,11 @@ abstract: >
   Rubin Science Platform is responsible for maintaining a list of authorized
   users and their associated identity information, authenticating their access
   to the Science Platform, and determining which services they are permitted
-  to use.  This tech note collects the decisions, analysis, and trade-offs
-  made in the implementation of the system.  It collects historical background
-  useful for understanding design and implementation decisions, but which may
-  clutter other documents and distract from the details of the system as
-  implemented.
+  to use.  This tech note collects decisions, analysis, and trade-offs made in
+  the implementation of the system that may be of future interest.  The
+  historical background here may be useful for understanding design and
+  implementation decisions, but would clutter other documents and distract
+  from the details of the system as implemented.
 
 # URL where this document is published by Read the Docs. e.g. http://sqr-001.lsst.codes
 url: "https://sqr-069.lsst.io"
