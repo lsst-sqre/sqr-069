@@ -3,6 +3,7 @@ Abstract
 
 The identity management, authentication, and authorization component of the Rubin Science Platform is responsible for maintaining a list of authorized users and their associated identity information, authenticating their access to the Science Platform, and determining which services they are permitted to use.
 This tech note collects decisions, analysis, and trade-offs made in the implementation of the system that may be of future interest.
+It also collects a list of intended future work.
 The historical background here may be useful for understanding design and implementation decisions, but would clutter other documents and distract from the details of the system as implemented.
 
 .. note::
