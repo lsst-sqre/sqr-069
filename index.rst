@@ -63,8 +63,218 @@ However, the user's list of teams is often long enough that GitHub will paginate
 If the client does not retrieve all pages, users may be mysteriously denied access for inobvious reasons.
 We learned this lesson the hard way, and Gafaelfawr now correctly supports pagination of the team list.
 
+COmanage
+========
+
+After choosing COmanage as the user identity store, we had to make several decisions about how to configure it, what identity management features it should provide, and what features we should implement external to it.
+
+Enrollment flow
+---------------
+
+It's possible to then configure a return URL to which the user goes after enrollment is complete, but that's probably not that useful when we're using an approval flow.
+
+We will need to customize the email messages and web pages presented as part of the approval flow.
+This has not yet been done.
+
+It's not clear yet whether we will need to automate additional changes to a person's record after onboarding, such as adding them to groups, or if this will be handled manually during the approval process.
+If we do need to automate this, we may need to do that via the COmanage API.
+
+Email verification issue
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Currently, user onboarding has a bug: After choosing their name, email, and username, the user is sent an email message to confirm that they have control over that email address.
+The link in the mail message has a one-time code in it, and confirms the email address when followed.
+However, sites with anti-virus integrated with their email system (such as AURA) often pre-fetch all URLs seen in email addresses.
+Since no authentication or confirmation is required when following the link, this means that any email address at such a domain is automatically confirmed without any human interaction, posing both a security flaw and a UI problem because the user will get a confusing error message when they follow that link manually.
+
+We will need to work with the COmanage maintainers to either require authentication to confirm the email address or to require a button that one has to click rather than doing the confirmation automatically.
+
+User approval
+^^^^^^^^^^^^^
+
+COmanage does not preserve the affiliation information sent by the identity provider, if any.
+Affiliation in COmanage must be set to one of a restricted set of values, and the affiliation given by identity providers is free-form.
+In our test instance, the affiliation was forced to always be "affiliate" to avoid this problem.
+
+If we want to make use of the affiliation sent by the upstream identity provider for approval decisions, we will have to write a COmanage plugin.
+The difficult part of that is defining what the business logic should be.
+
+To see the affiliation attributes sent by an identity provider, go directly to CILogon_ and log on via that provider.
+On the resulting screen, look at the User Attributes section.
+
+Group management
+----------------
+
+We had two primary options for managing groups via COmanage: using COmanage Registry groups, or using Grouper_.
+In both cases, there are limitations on how much we can customize the UI without a lot of development.
+
+.. _Grouper: https://spaces.at.internet2.edu/display/Grouper/Grouper+Wiki+Home
+
+Quota calculation is not directly supported with either system and in either case would need custom development (either via a plugin or via a service that used the group API).
+Recording quota information for groups locally and using the group API (or LDAP) to synchronize the list of groups with the canonical list looks like the easiest path.
+
+COmanage Registry groups
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+(This is the option that we chose.)
+
+Advantages:
+
+.. rst-class:: compact
+
+#. Uses the same UI as the onboarding and identity management process
+#. Possible (albeit complex) to automatically generate GIDs using ``voPosixGroup`` (see :ref:`voPosixGroup <voposixgroup>`)
+
+Disadvantages:
+
+.. rst-class:: compact
+
+#. No support for nested groups
+#. Groups cannot own other groups
+#. No support for set math between groups
+#. No generic metadata support, so group quotas would need to be maintained separately (presumably by a Rubin-developed service)
+#. There currently is a rendering bug that causes each person to show up three times when editing the group membership, but this will be fixed in the 4.0.0 release due in the second quarter of 2021
+
+Grouper
+^^^^^^^
+
+Advantages:
+
+.. rst-class:: compact
+
+#. Full support for nested groups
+#. Groups can own other groups
+#. Specializes in set math between groups if we want to do complex authorization calculations
+#. Arbitrary metadata can be added to groups via the API, so we could use Grouper as our data store rather than a local database
+
+Disadvantages:
+
+.. rst-class:: compact
+
+#. More complex setup and data flow
+#. Users have to interact with two UIs, the COmanage one for identities and the Grouper UI for group management
+#. No support for automatic GID generation
+
+Grouper supports a REST API.
+However, it appears to be very complex and documented primarily as a Java API.
+We were unable to locate a traditional REST API description for it.
+The API looks to be fully functional but it makes a number of unusual choices, such as ``T`` and ``F`` strings instead of proper booleans.
+
+Using the API appears to require a lot of reverse engineering from example traces.
+See, for instance, the `example of assigning an attribute value to a group <https://github.com/Internet2/grouper/blob/master/grouper-ws/grouper-ws/doc/samples/assignAttributesWithValue/WsSampleAssignAttributesWithValueRestLite_json.txt>`__.
+
+A sample Grouper API call:
+
+.. code-block:: console
+
+   $ curl --silent -u GrouperSystem:XXXXXXXX \
+     'https://group-registry-test.lsst.codes/grouper-ws/servicesRest/json/v2_5_000/groups/etc%3Asysadmingroup/members' \
+     | jq .
+
+We didn't investigate this further since we decided against using Grouper for group management.
+
+.. _gid:
+
+Numeric GIDs
+------------
+
+Getting numeric GIDs into the LDAP entries for each group isn't well-supported by COmanage.
+The LDAP connector does not have an option to add arbitrary group identifiers to the group LDAP entry.
+
+We decided to avoid this problem by assigning UIDs and GIDs outside of COmanage using `Google Firestore`_.
+Here are a few other possible options we considered.
+
+.. _Google Firestore: https://cloud.google.com/firestore
+
+COmanage group REST API
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Arbitrary identifiers can be added to groups, so a group can be configured with an auto-incrementing unique identifier in the same way that we do for users, using a base number of 200000 instead of 100000 to keep the UIDs and GIDs distinct (allowing the UID to be used as the GID of the primary group).
+Although that identifier isn't exposed in LDAP, it can be read via the COmanage REST API using a URL such as::
+
+    https://<registry-url>/registry/identifiers.json?cogroupid=7
+
+The group ID can be obtained from the ``/registry/co_groups.json`` route, searching on a specific ``coid``.
+Middleware running on the Rubin Science Platform could cache the GID information for every group, refresh it periodically, and query for the GID of a new group when seen.
+
+.. _voposixgroup:
+
+voPosixGroup
+^^^^^^^^^^^^
+
+Another option is to enable ``voPosixGroup`` and generate group IDs that way.
+However, that process is somewhat complex.
+
+COmanage Registry has the generic notion of a `Cluster <https://spaces.at.internet2.edu/display/COmanage/Clusters>`__.
+A Cluster is used to represent a CO Person's accounts with a given application or service.
+
+Cluster functionality is implemented by Cluster Plugins.
+Right now there is one Cluster Plugin that comes out of the box with COmanage, the `UnixCluster plugin <https://spaces.at.internet2.edu/display/COmanage/Unix+Cluster+Plugin>`__.
+
+The UnixCluster plugin is configured with a "GID Type."
+From the documentation: "When a CO Group is mapped to a Unix Cluster Group, the CO Group Identifier of this type will be used as the group's numeric ID."
+CO Person can then have a UnixCluster account that has associated with it a UnixCluster Group, and the group will have a GID identifier.
+
+To have the information about the UnixCluster and the UnixCluster Group provisioned into LDAP using the ``voPosixAccount`` objectClass, define a `CO Service <https://spaces.at.internet2.edu/display/COmanage/Registry+Services>`__ for the UnixCluster.
+In that configuration you need to specify a "short label", which will become value for an LDAP attribute option.
+Since the ``voPosixAccount`` objectClass attributes are multi-valued, you can represent multiple "clusters," and they are distinguised by using that LDAP attribute option value.
+For example::
+
+    dn: voPersonID=LSST100000,ou=people,o=LSST,o=CO,dc=lsst,dc=org
+    sn: KORANDA
+    cn: SCOTT KORANDA
+    objectClass: person
+    objectClass: organizationalPerson
+    objectClass: inetOrgPerson
+    objectClass: eduMember
+    objectClass: voPerson
+    objectClass: voPosixAccount
+    givenName: SCOTT
+    mail: SKORANDA@CS.WISC.EDU
+    uid: http://cilogon.org/server/users/2604273
+    isMemberOf: CO:members:all
+    isMemberOf: CO:members:active
+    isMemberOf: scott.koranda UnixCluster Group
+    voPersonID: LSST100000
+    voPosixAccountUidNumber;scope-primary: 1000000
+    voPosixAccountGidNumber;scope-primary: 1000000
+    voPosixAccountHomeDirectory;scope-primary: /home/scott.koranda
+
+This reflects a CO Service for the UnixAccount using the short label "primary."
+With a second UnixCluster and CO Service with short label "slac" to represent an account at SLAC, this record would have additionally::
+
+    voPosixAccountGidNumber;scope-slac: 1000001
+
+The UnixCluster object and UnixCluster Group objects and all the identifiers are usually established during an enrollment flow.
+
+Grouper
+^^^^^^^
+
+Grouper does not have built-in support for assigning numeric GIDs to each group out of some range.
+It is possible to cobble something together using the ``idIndex`` that Grouper generates (see `this discussion <https://lists.internet2.edu/sympa/arc/grouper-users/2017-01/msg00087.html>`__ and `this documentation <https://spaces.at.internet2.edu/display/Grouper/Integer+IDs+on+Grouper+objects>`__), but it would require some development.
+
+Alternately, groups can be assigned arbitrary attributes that we define, so we can assign GIDs to groups via the API, but we would need to maintain the list of available GIDs and ensure there are no conflicts.
+Grouper also does not appear to care if the same attribute value is assigned to multiple groups, so we would need to handle uniqueness.
+
+Custom development
+^^^^^^^^^^^^^^^^^^
+
+We could enhance (or pay someone to enhance) the LDAP Provisioning Plugin to allow us to express an additional object class in the group tree in LDAP, containing a numeric GID identifier.
+
 Authentication
 ==============
+
+User self groups
+----------------
+
+Each user will appear to the Rubin Science Platform to also be the sole member of a group with the same name as the username and the same GID as the UID.
+This is a requirement for POSIX file systems underlying the Notebook Aspect and for the Butler service (see DMTN-182_ for the latter).
+
+.. _DMTN-182: https://dmtn-182.lsst.io/
+
+These groups will not be managed in COmanage or Grouper.
+They will be synthesized by Gafaelfawr in response to queries about the user.
+This work is not yet done.
 
 HTTP Basic Authentication
 -------------------------
@@ -137,6 +347,7 @@ The **IDM-XXXX** references are to requirements listed in SQR-044_, which may pr
 
 .. rst-class:: compact
 
+- Implement user self-groups (groups with the same name as the username)
 - Use multiple domains to control JavaScript access and user cookies
 - Filter out the token from ``Authorization`` headers of incoming requests
 - Restrict OpenID Connect authentication by scope
