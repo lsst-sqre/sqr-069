@@ -318,6 +318,37 @@ Storage
 Gafaelfawr stores data in both a SQL database and in Redis.
 Use of two separate storage systems is unfortunate extra complexity, but Redis is poorly suited to store relational data about tokens or long-term history, while PostgreSQL is poorly suited for quickly handling a high volume of checks for token validity.
 
+Token API
+=========
+
+The token API design follows the recommendations in `Best Practices for Designing a Pragmatic RESTful API`_.
+This means, among other implications:
+
+- Identifiers are used instead of URLs
+- The API does not follow HATEOAS_ principles
+- The API does not attempt to be self-documenting (see the OpenAPI-generated documentation instead)
+- Successful JSON return values are not wrapped in metadata
+- ``Link`` headers are used for pagination
+
+.. _HATEOAS: https://en.wikipedia.org/wiki/HATEOAS
+
+See that blog post for more reasoning and justification.
+See :ref:`References <references>` for more research links.
+
+All URLs for the REST API for token manipulation start with ``/auth/api/v1``.
+
+The API is divided into two parts: routes that may be used by an individual user to manage and view their own tokens, and routes that may only be used by an administrator.
+Administrators are defined as users with authentication tokens that have the ``admin:token`` scope.
+The first class of routes can also be used by an administrator and, unlike an individual user, an administrator can specify a username other than their own.
+
+There is some minor duplication in routes (``/auth/api/v1/tokens`` and ``/auth/api/v1/users/{username}/tokens`` and similarly for token authentication and change history).
+This was done to simplify the security model.
+Users may only use the routes under the ``users`` collection with their own username.
+The routes under ``/tokens`` and ``/history`` allow searching for any username, creating tokens for any user, and seeing results across all usernames.
+They are limited to administrators.
+This could have instead been enforced in more granular authorization checks on the more general routes, but this approach seemed simpler and easier to understand.
+It also groups all of a user's data under ``/users/{username}`` and is potentially extensible to other APIs later.
+
 Token UI
 ========
 
@@ -384,3 +415,58 @@ The **IDM-XXXX** references are to requirements listed in SQR-044_, which may pr
 - API to COmanage (IDM-3001)
 - Scale testing (IDM-4000)
 - Scaling of group membership (IDM-4001)
+
+.. _references:
+
+References
+==========
+
+The `references section of DMTN-224 <https://dmtn-224.lsst.io/#references>`__ lists all of the identity management tech notes.
+This is a list of additional references to standards and blog discussions that were useful in development the design and implementation.
+
+Blog posts
+----------
+
+`Best Practices for Designing a Pragmatic RESTful API`_
+    An excellent and opinionated discussion of various areas of RESTful API design that isn't tied to any specific framework or standard.
+
+`Five ways to paginate in Postgres`_
+    A discussion of tradeoffs between pagination techniques in PostgreSQL, including low-level database performance and PostgreSQL-specific features.
+
+`JSON API, OpenAPI and JSON Schema Working in Harmony`_
+    Considerations for which standards to use when designing a JSON REST API.
+
+`The Benefits of Using JSON API`_
+    An overview of JSON:API with a comparison to GraphQL.
+
+.. _Best Practices for Designing a Pragmatic RESTful API: https://www.vinaysahni.com/best-practices-for-a-pragmatic-restful-api
+.. _Five ways to paginate in Postgres: https://www.citusdata.com/blog/2016/03/30/five-ways-to-paginate/
+.. _JSON API, OpenAPI and JSON Schema Working in Harmony: https://apisyouwonthate.com/blog/json-api-openapi-and-json-schema-working-in-harmony
+.. _The Benefits of Using JSON API: https://nordicapis.com/the-benefits-of-using-json-api/
+
+Standards
+---------
+
+`FastAPI`_
+    The documentation for the FastAPI Python framework.
+
+`JSON:API`_
+    The (at the time of this writing) release candidate for the upcoming JSON:API 1.1 specification.
+
+OpenAPI_
+    The OpenAPI specification for RESTful APIs.
+    Provides a schema and description of an API and supports automatic documentation generation.
+    Used by FastAPI_.
+
+`RFC 7807`_
+    This document defines a "problem detail" as a way to carry machine-readable details of errors in a HTTP response to avoid the need to define new error response formats for HTTP APIs.
+
+`RFC 8288`_
+    This specification defines a model for the relationships between resources on the Web ("links") and the type of those relationships ("link relation types").
+    It also defines the serialisation of such links in HTTP headers with the Link header field.
+
+.. _FastAPI: https://fastapi.tiangolo.com/
+.. _JSON:API: https://jsonapi.org/format/1.1/
+.. _OpenAPI: https://swagger.io/specification/
+.. _RFC 7807: https://tools.ietf.org/html/rfc7807
+.. _RFC 8288: https://tools.ietf.org/html/rfc8288
