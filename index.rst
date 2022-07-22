@@ -63,8 +63,8 @@ However, the user's list of teams is often long enough that GitHub will paginate
 If the client does not retrieve all pages, users may be mysteriously denied access for inobvious reasons.
 We learned this lesson the hard way, and Gafaelfawr now correctly supports pagination of the team list.
 
-Authentication flows
-====================
+Authentication
+==============
 
 HTTP Basic Authentication
 -------------------------
@@ -89,6 +89,17 @@ If the user's scopes are not sufficient, Gafaelfawr could reject the authenticat
 
 The configuration of OpenID Connect clients is currently rather obnoxious, since it requires manipulating a serialized JSON blob inside the Gafaelfawr secret.
 It would be nice to have a better way of configuring the client IDs and any supporting configuration, such as a list of scopes, and associating them with client secrets kept in some secure secret store.
+
+InfluxDB tokens
+---------------
+
+Gafaelfawr contains support for minting authentication tokens for InfluxDB 1.x.
+This version of InfluxDB_ expects a JWT (using the ``HS256`` algorithm) created with a symmetric key shared between the InfluxDB server and the authentication provider.
+
+.. _InfluxDB: https://www.influxdata.com/
+
+InfluxDB 2.0 dropped this authentication mechanism, so we do not expect to continue using it indefinitely.
+It therefore isn't mentioned in the design or implementation documents.
 
 Storage
 =======
