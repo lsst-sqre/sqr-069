@@ -60,6 +60,9 @@ Prior authorizations with incomplete information may still be reused if the user
 Authentication flows
 ====================
 
+HTTP Basic Authentication
+-------------------------
+
 The protocol for HTTP Basic Authentication, using ``x-oauth-basic`` as either the username or password along with the token, is reportedly based on GitHub support for HTTP Basic Authentication.
 GitHub currently appears to recognize tokens wherever they're put and does not require the ``x-oauth-basic`` string.
 (This would likely be wise for Gafaelfawr to do as well, but it has not yet been implemented.)
@@ -67,6 +70,19 @@ GitHub currently appears to recognize tokens wherever they're put and does not r
 The password is probably the better place to put the token in HTTP Basic Authentication, since software will know to protect or obscure it, but common practice in other APIs that support using tokens for HTTP Basic Authentication is to use the username.
 Gafaelfawr therefore supports both.
 As a fallback, if neither username nor password is ``x-oauth-basic``, it assumes the username is the token, but this is not documented (except here) since we'd prefer users not use it.
+
+OpenID Connect flow
+-------------------
+
+Currently, when Gafaelfawr acts as an OpenID Connect provider, it does not do any access control and does not check the scopes of the token.
+It relies entirely on the service initiating the OpenID Connect flow to do authorization checks.
+
+Each OpenID Connect client must be configured with a client ID and secret in an entry in a JSON blob in the Gafaelfawr secret.
+It would be possible to add a list of required scopes to that configuration and check the authenticating token against those scopes during the OpenID Connect authentication.
+If the user's scopes are not sufficient, Gafaelfawr could reject the authentication with an error.
+
+The configuration of OpenID Connect clients is currently rather obnoxious, since it requires manipulating a serialized JSON blob inside the Gafaelfawr secret.
+It would be nice to have a better way of configuring the client IDs and any supporting configuration, such as a list of scopes, and associating them with client secrets kept in some secure secret store.
 
 Storage
 =======
