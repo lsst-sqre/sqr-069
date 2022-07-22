@@ -57,6 +57,12 @@ This forces the user back to the OAuth App authorization screen the next time th
 
 Prior authorizations with incomplete information may still be reused if the user never explicitly logs out, only lets their cookies expire, but at least we can document that explicitly logging out and logging back in will fix any missing organizational data.
 
+It's common for clients of the GitHub API to not worry about pagination, since most requests don't result in responses that are long enough to be paginated.
+The original Gafaelfawr OAuth 2.0 client code did not support pagination when retrieving information about the user.
+However, the user's list of teams is often long enough that GitHub will paginate it.
+If the client does not retrieve all pages, users may be mysteriously denied access for inobvious reasons.
+We learned this lesson the hard way, and Gafaelfawr now correctly supports pagination of the team list.
+
 Authentication flows
 ====================
 
