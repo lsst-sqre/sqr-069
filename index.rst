@@ -54,6 +54,7 @@ This will need to be addressed before production deployment.
 Suppose, for instance, a user has access via the University of Washington, and has also configured GitHub as an authentication provider because that's more convenient for them.
 Now suppose the user's affiliation with the University of Washington ends and observatory data rights policy says they should no longer have access.
 If the user continues to authenticate via GitHub, the Science Platform needs to recognize this affiliation change and implement it via changed group memberships or changed scopes (or possibly suspending the account entirely).
+This mechanism should also handle user tokens the user has previously created, including invalidating them if necessary.
 The design currently has no mechanism for this.
 
 GitHub
@@ -95,6 +96,22 @@ It limits the scope of compromise of the identity management system to a single 
 It also avoids the numerous complexities around token lifetime, management, logging, and concepts of identity inherent in a federated design.
 For example, different deployments of the Science Platform are likely to have different sets of authorized users, which would have to be taken into account for cross-cluster authentication and authorization.
 
+Forced multifactor authentication
+---------------------------------
+
+Ideally, we would like to force multifactor authentication for administrators to make it harder for a single password compromise to compromise the entire Science Platform.
+Unfortunately, Google and GitHub do not expose this information in their OAuth metadata, and therefore it's hard to know how someone authenticated when they came through CILogon (which will always be the case for a general access deployment).
+
+Two possible approaches to consider (neither of which have been implemented):
+
+- Use a separate authentication path for administrators that forces use of a specific Google Cloud Identity domain with appropriate multifactor authentication requirements.
+  This would require implementing Google authentication directly in Gafaelfawr and supporting two configured authentication methods for the same deployment, which is somewhat unappealing for complexity reasons.
+
+- Address the issue via policy.
+  In order to be added to the administrators group in COmanage (the one that maps to an ``admin:token`` scope, or other similar privileged scopes), require that all configured sources of identity use multifactor authentication.
+  We probably couldn't enforce this programmatically, since the administrator could add another source of identity and it would be hard to know that this has happened, but that may not be necessary.
+  One variation on this approach that's worth considering is to restrict the most privileged access to a second account (conventionally, ``<username>-admin``) kept separate from regular day-to-day use and testing of the Science Platform.
+
 COmanage
 ========
 
@@ -110,6 +127,9 @@ This has not yet been done.
 
 It's not clear yet whether we will need to automate additional changes to a person's record after onboarding, such as adding them to groups, or if this will be handled manually during the approval process.
 If we do need to automate this, we may need to do that via the COmanage API.
+
+The current enrollment approach relies solely on the "Self Signup with Approval" flow, but an invitation flow may make more sense in some cases since it allows pre-approval of the user.
+Currently, the user has to be told to go through the signup process and then the approver has to check back once this has been done and finish the approval, which requires an additional point of coordination.
 
 Email verification issue
 ^^^^^^^^^^^^^^^^^^^^^^^^
