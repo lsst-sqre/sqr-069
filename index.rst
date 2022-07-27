@@ -588,65 +588,112 @@ References
 The `references section of DMTN-224 <https://dmtn-224.lsst.io/#references>`__ lists all of the identity management tech notes.
 This is a list of additional references to standards and blog discussions that were useful in development the design and implementation.
 
+Standards
+---------
+
+`JSON:API`__
+    The (at the time of this writing) release candidate for the upcoming JSON:API 1.1 specification.
+
+__ https://jsonapi.org/format/1.1/
+
+OpenAPI__
+    The OpenAPI specification for RESTful APIs.
+    Provides a schema and description of an API and supports automatic documentation generation.
+    Used by FastAPI_.
+
+__ https://swagger.io/specification/
+
+`OpenID Connect Core 1.0`__
+    The core specification of the OpenID Connect protocol.
+
+__ https://openid.net/specs/openid-connect-core-1_0.html
+
+`OpenID Connect Discovery 1.0`__
+    OpenID Connect discovery mechanisms, including the specification for the metadata returned by the provider metadata endpoint.
+
+__ https://openid.net/specs/openid-connect-discovery-1_0.html
+
+`RFC 6749: The OAuth 2.0 Authorization Framework`__
+    The specification for the OAuth 2.0 authorization framework, on top of which OpenID Connect was built.
+
+__ https://datatracker.ietf.org/doc/html/rfc6749
+
+`RFC 6750: Bearer Token Usage`__
+    Documents the syntax for ``WWW-Authenticate`` and ``Authorization`` header fields when using bearer tokens.
+    The attributes returned in a challenge in a ``WWW-Authenticate`` header field are defined here.
+
+__ https://datatracker.ietf.org/doc/html/rfc6750
+
+`RFC 7517: JSON Web Key (JWK)`__
+    The specification of the JSON Web Key format, including JSON Web Key Sets (JWKS).
+
+__  https://datatracker.ietf.org/doc/html/rfc7517
+
+`RFC 7519: JSON Web Token (JWT)`__
+    The core specification for the JSON Web Token format.
+
+__ https://datatracker.ietf.org/doc/html/rfc7519
+
+`RFC 7617: The Basic HTTP Authentication Scheme`__
+    Documents the syntax for ``WWW-Authenticate`` and ``Authorization`` header fields when using HTTP Basic Authentication.
+
+__ https://datatracker.ietf.org/doc/html/rfc7617
+
+`RFC 7807: Problem Details for HTTP APIs`__
+    Defines a "problem detail" as a way to carry machine-readable details of errors in a HTTP response.
+    This avoids the need to define new error response formats for HTTP APIs.
+
+__ https://datatracker.ietf.org/doc/html/rfc7807
+
+`RFC 8288: Web Linking`__
+    The standard for the ``Link`` HTTP header and its relation types.
+
+__ https://datatracker.ietf.org/doc/html/rfc8288
+
+Other documentation
+-------------------
+
+`CILogon OpenID Connect`__
+    Documentation for how to use CILogon as an OpenID Connect provider.
+    Includes client registration and the details of the OpenID Connect protocol as implemented by CILogon.
+
+__ https://www.cilogon.org/oidc
+
+`FastAPI`_
+    The documentation for the FastAPI Python framework.
+
+.. _FastAPI: https://fastapi.tiangolo.com/
+
+`GitHub OAuth Apps`__
+    How to create an OAuth App for GitHub, request authentication, and parse the results.
+
+__ https://docs.github.com/en/developers/apps/building-oauth-apps
+
+`GitHub Users API`__
+    APIs for retrieving information about the authenticated user.
+    See also `user emails <https://docs.github.com/en/rest/users/emails>`__ and `teams <https://docs.github.com/en/rest/teams>`__.
+
+__ https://docs.github.com/en/rest/users
+
 Blog posts
 ----------
 
 `Best Practices for Designing a Pragmatic RESTful API`_
     An excellent and opinionated discussion of various areas of RESTful API design that isn't tied to any specific framework or standard.
 
-`Five ways to paginate in Postgres`_
+.. _Best Practices for Designing a Pragmatic RESTful API: https://www.vinaysahni.com/best-practices-for-a-pragmatic-restful-api
+
+`Five ways to paginate in Postgres`__
     A discussion of tradeoffs between pagination techniques in PostgreSQL, including low-level database performance and PostgreSQL-specific features.
 
-`JSON API, OpenAPI and JSON Schema Working in Harmony`_
+__ https://www.citusdata.com/blog/2016/03/30/five-ways-to-paginate/
+
+`JSON API, OpenAPI and JSON Schema Working in Harmony`__
     Considerations for which standards to use when designing a JSON REST API.
 
-`The Benefits of Using JSON API`_
+__ https://apisyouwonthate.com/blog/json-api-openapi-and-json-schema-working-in-harmony
+
+`The Benefits of Using JSON API`__
     An overview of JSON:API with a comparison to GraphQL.
 
-.. _Best Practices for Designing a Pragmatic RESTful API: https://www.vinaysahni.com/best-practices-for-a-pragmatic-restful-api
-.. _Five ways to paginate in Postgres: https://www.citusdata.com/blog/2016/03/30/five-ways-to-paginate/
-.. _JSON API, OpenAPI and JSON Schema Working in Harmony: https://apisyouwonthate.com/blog/json-api-openapi-and-json-schema-working-in-harmony
-.. _The Benefits of Using JSON API: https://nordicapis.com/the-benefits-of-using-json-api/
-
-Standards
----------
-
-`FastAPI`_
-    The documentation for the FastAPI Python framework.
-
-`JSON:API`_
-    The (at the time of this writing) release candidate for the upcoming JSON:API 1.1 specification.
-
-OpenAPI_
-    The OpenAPI specification for RESTful APIs.
-    Provides a schema and description of an API and supports automatic documentation generation.
-    Used by FastAPI_.
-
-`RFC 6750`_
-    This specification describes how to use bearer tokens in HTTP requests to access OAuth 2.0 protected resources.
-    Any party in possession of a bearer token (a "bearer") can use it to get access to the associated resources (without demonstrating possession of a cryptographic key).
-    To prevent misuse, bearer tokens need to be protected from disclosure in storage and in transport.
-
-`RFC 7519`_
-    Defines a JSON Web Token (JWT), which is a compact claims representation format intended for space constrained environments such as HTTP Authorization headers and URI query parameters.
-    JWTs encode claims to be transmitted as a JSON object that is used as the payload of a JSON Web Signature (JWS) structure or as the plaintext of a JSON Web Encryption (JWE) structure, enabling the claims to be digitally signed or integrity protected with a Message Authentication Code (MAC) and/or encrypted.
-    JWTs are always represented using the JWS Compact Serialization or the JWE Compact Serialization.
-
-`RFC 7617`_
-    This document defines the "Basic" Hypertext Transfer Protocol (HTTP) authentication scheme, which transmits credentials as user-id/password pairs, encoded using Base64.
-
-`RFC 7807`_
-    This document defines a "problem detail" as a way to carry machine-readable details of errors in a HTTP response to avoid the need to define new error response formats for HTTP APIs.
-
-`RFC 8288`_
-    This specification defines a model for the relationships between resources on the Web ("links") and the type of those relationships ("link relation types").
-    It also defines the serialisation of such links in HTTP headers with the Link header field.
-
-.. _FastAPI: https://fastapi.tiangolo.com/
-.. _JSON:API: https://jsonapi.org/format/1.1/
-.. _OpenAPI: https://swagger.io/specification/
-.. _RFC 6750: https://datatracker.ietf.org/doc/html/rfc6750
-.. _RFC 7519: https://datatracker.ietf.org/doc/html/rfc7519
-.. _RFC 7617: https://datatracker.ietf.org/doc/html/rfc7617
-.. _RFC 7807: https://datatracker.ietf.org/doc/html/rfc7807
-.. _RFC 8288: https://datatracker.ietf.org/doc/html/rfc8288
+__ https://nordicapis.com/the-benefits-of-using-json-api/
