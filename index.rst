@@ -438,6 +438,11 @@ If the user's scopes are not sufficient, Gafaelfawr could reject the authenticat
 The configuration of OpenID Connect clients is currently rather obnoxious, since it requires manipulating a serialized JSON blob inside the Gafaelfawr secret.
 It would be nice to have a better way of configuring the client IDs and any supporting configuration, such as a list of scopes, and associating them with client secrets kept in some secure secret store.
 
+Currently, Gafaelfawr does not register the ``redirect_uri`` parameter from an OpenID Connect client.
+As long as the client authenticates, it allows redirection to any URL within the same domain.
+If the valid ``redirect_uri`` values were registered along with the client and validated against the provided ``redirect_uri``, Gafaelfawr could extend OpenID Connect support to relying parties outside of the Science Platform deployment.
+This would allow chaining Gafaelfawr instances.
+
 InfluxDB tokens
 ---------------
 
@@ -538,6 +543,7 @@ The **IDM-XXXX** references are to requirements listed in SQR-044_, which may pr
 .. rst-class:: compact
 
 - Implement user self-groups (groups with the same name as the username)
+- Register and validate ``remote_uri`` for OpenID Connect clients, and relax the requirement that they be in the same domain
 - Use multiple domains to control JavaScript access and user cookies
 - Filter out the token from ``Authorization`` headers of incoming requests
 - Restrict OpenID Connect authentication by scope
