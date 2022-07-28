@@ -460,6 +460,24 @@ Storage
 Gafaelfawr stores data in both a SQL database and in Redis.
 Use of two separate storage systems is unfortunate extra complexity, but Redis is poorly suited to store relational data about tokens or long-term history, while PostgreSQL is poorly suited for quickly handling a high volume of checks for token validity.
 
+Data precendence
+----------------
+
+Older versions of Gafaelfawr used complex logic to decide whether to look for user identity information in Redis, Firestore, or LDAP depending on the overall configuration and whether the token was created via the admin API.
+After some practical experience trying to maintain that logic, Gafaelfawr switched to the current model of a strict precedence hierarchy.
+If the data element is in Redis, that's used by preference.
+Otherwise, it's taken from Firestore, then LDAP, and if all of those fail, it's considered empty.
+
+This model simplifies the handling of each authentication request and moves the logic for handling data sources to the login handler, where it's easy to handle.
+During login, Gafaelfawr chooses whether to store user identity data in Redis based on its configuration of sources for identity information.
+If the data is coming from some external source like Firestore or LDAP, it is not stored in Redis.
+If it is coming from GitHub or from OpenID Connect ID token claims, it is stored in Redis.
+The precedence logic will then use the right data sources for subsequent requests.
+
+An advantage of this approach in addition to simplicity is that it allows administrators creating tokens via the token API to choose whether they want to override external data sources.
+If they specify identity information for the token, it's stored in Redis and overrides external sources.
+Otherwise, external sources will be used as configured.
+
 Cookies
 -------
 
