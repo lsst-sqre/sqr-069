@@ -25,7 +25,7 @@ Identity
 Federated identity
 ------------------
 
-General access deployments of the Science Platform must support federated user authentication via SAML and ideally should support other common authentication methods such as OAuth 2.0 (GitHub) and OpenID Connect (Google).
+Some deployments of the Science Platform must support federated user authentication via SAML alongside other common authentication methods such as OAuth 2.0 (GitHub) and OpenID Connect (Google).
 We considered other approaches to accepting federated identity besides using CILogon_ and COmanage_.
 
 .. _CILogon: https://www.cilogon.org/
@@ -104,7 +104,7 @@ Forced multifactor authentication
 ---------------------------------
 
 Ideally, we would like to force multifactor authentication for administrators to make it harder for a single password compromise to compromise the entire Science Platform.
-Unfortunately, Google and GitHub do not expose this information in their OAuth metadata, and therefore it's hard to know how someone authenticated when they came through CILogon (which will always be the case for a general access deployment).
+Unfortunately, Google and GitHub do not expose this information in their OAuth metadata, and therefore it's hard to know how someone authenticated when they came through CILogon (which will always be the case for a deployment using federated identity).
 
 Two possible approaches to consider (neither of which have been implemented):
 
@@ -368,7 +368,7 @@ This choice forgoes the following advantages of using JWTs internally:
 
 - Some third-party services may consume JWTs directly and expect to be able to validate them.
   Gafaelfawr therefore had to implement OpenID Connect authentication (with separate JWT tokens) as an additional authentication flow unrelated to the token authentication system used by most routes.
-  However, this implementation can be minimal and is limited in scope to only Science Platform services that require OpenID Connect (which are expected to be a small subset of services and may not be required in the general access deployment case at all).
+  However, this implementation can be minimal and is limited in scope to only Science Platform services that require OpenID Connect (which are expected to be a small subset of services and may not be required in the federated identity deployment case at all).
 
 - If a user API call sets off a cascade of numerous internal API calls, avoiding the need to consult a data store to validate opaque tokens could improve performance.
   JWTs can be verified directly without needing any state other than the (relatively unchanging) public signing key.
