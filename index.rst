@@ -135,6 +135,17 @@ If we do need to automate this, we may need to do that via the COmanage API.
 The current enrollment approach relies solely on the "Self Signup with Approval" flow, but an invitation flow may make more sense in some cases since it allows pre-approval of the user.
 Currently, the user has to be told to go through the signup process and then the approver has to check back once this has been done and finish the approval, which requires an additional point of coordination.
 
+Email verification
+^^^^^^^^^^^^^^^^^^
+
+By default, COmanage confirms email addresses by sending an email message with a link which, when visited, confirms that the user can receive email at that address.
+This approach has problems with email anti-virus systems that retrieve all links in incoming messages to check them for malware.
+That anti-virus check will automatically confirm the email address with no user interaction required, thus defeating the point of the check.
+
+COmanage added a configuration setting to address this, allowing one to force a confirmation page or authentication or both to confirm an address.
+Our configuration adds the confirmation page, which requires the user press a :guilabel:`Confirm` button after visiting the page.
+Anti-virus systems won't interact with the retrieved page, and thus won't confirm the email address with that setting.
+
 User approval
 ^^^^^^^^^^^^^
 
