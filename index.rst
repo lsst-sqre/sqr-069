@@ -135,15 +135,16 @@ If we do need to automate this, we may need to do that via the COmanage API.
 The current enrollment approach relies solely on the "Self Signup with Approval" flow, but an invitation flow may make more sense in some cases since it allows pre-approval of the user.
 Currently, the user has to be told to go through the signup process and then the approver has to check back once this has been done and finish the approval, which requires an additional point of coordination.
 
-Email verification issue
-^^^^^^^^^^^^^^^^^^^^^^^^
+Email verification
+^^^^^^^^^^^^^^^^^^
 
-Currently, user onboarding has a bug: After choosing their name, email, and username, the user is sent an email message to confirm that they have control over that email address.
-The link in the mail message has a one-time code in it, and confirms the email address when followed.
-However, sites with anti-virus integrated with their email system (such as AURA) often pre-fetch all URLs seen in email addresses.
-Since no authentication or confirmation is required when following the link, this means that any email address at such a domain is automatically confirmed without any human interaction, posing both a security flaw and a UI problem because the user will get a confusing error message when they follow that link manually.
+By default, COmanage confirms email addresses by sending an email message with a link which, when visited, confirms that the user can receive email at that address.
+This approach has problems with email anti-virus systems that retrieve all links in incoming messages to check them for malware.
+That anti-virus check will automatically confirm the email address with no user interaction required, thus defeating the point of the check.
 
-We will need to work with the COmanage maintainers to either require authentication to confirm the email address or to require a button that one has to click rather than doing the confirmation automatically.
+COmanage added a configuration setting to address this, allowing one to force a confirmation page or authentication or both to confirm an address.
+Our configuration adds the confirmation page, which requires the user press a :guilabel:`Confirm` button after visiting the page.
+Anti-virus systems won't interact with the retrieved page, and thus won't confirm the email address with that setting.
 
 User approval
 ^^^^^^^^^^^^^
