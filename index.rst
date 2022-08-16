@@ -414,17 +414,39 @@ The password is probably the better place to put the token in HTTP Basic Authent
 Gafaelfawr therefore supports both.
 As a fallback, if neither username nor password is ``x-oauth-basic``, it assumes the username is the token, but this is not documented (except here) since we'd prefer users not use it.
 
-User self groups
-----------------
+User private groups
+-------------------
 
-Each user will appear to the Rubin Science Platform to also be the sole member of a group with the same name as the username and the same GID as the UID.
-This is a requirement for POSIX file systems underlying the Notebook Aspect and for the Butler service (see DMTN-182_ for the latter).
+Ideally, we'd prefer to implement user private groups (where each user is a member of a group with a matching name and the same GID as the user's UID) for all deployments.
+Using user private groups allows all access control to be done based on group membership, which is part of the authorization design for Butler (see DMTN-182_).
+Unfortunately, when a local identity management system is in play, there's no good way to do this because there's no safe GID to assign to the user.
+The local identity management system should also be canonical for the user's primary GID.
 
 .. _DMTN-182: https://dmtn-182.lsst.io/
 
-These groups will not be managed in COmanage or Grouper.
-They will be synthesized by Gafaelfawr in response to queries about the user.
-This work is not yet done.
+We therefore implement user private groups only for the federated identity case, where we control the UID and GID spaces and can reserve all the GIDs that match UIDs for user private groups and always synthesize the group, and for the GitHub case, where we blindly use the user ID as a group ID for the user private group and the primary GID.
+For GitHub, this is not ideal since it may conflict with a team ID and thus a regular group ID, but given the small number of users and the large ID space, we're hoping we won't have a conflict.
+
+These groups are not managed in COmanage or GitHub.
+They are synthesized by Gafaelfawr in response to queries about the user.
+
+For deployments with a local identity management system, since the user's GIDs may have to correspond to expected GIDs for file systems maintained outside the scope of the Science Platform and requiring compatibility with other local infrastructure, we do not attempt to implement user private groups.
+Either they are provided by the local identity management system, or they're not.
+
+Primary GIDs
+------------
+
+The initial implementation of the identity management system assigned a UID but not a primary GID, only GIDs for each group.
+Instead, the Notebook Aspect blindly assumed that it could use a GID equal to the UID when spawning lab pods, and no other part of the system used a primary GID.
+
+However, this approach did not work for the USDF, where UID and GID spaces overlap, and users are already assigned a primary GID by the local identity management system.
+Blindly copying the UID caused lab pods to be running with unexpected GIDs that may overlap with other groups.
+
+The concept (and data element) of a primary GID was introduced to solve this problem and added to the other types of deployments.
+For GitHub and federated identity deployments, this is simple since they use user private groups with a GID matching the UID, so that GID (equal to the UID) can also be made the primary GID.
+
+We considered making the primary GID field optional, and it still formally is within the Gafaelfawr data model, but in practice it should always be set in order to make behavior well-defined.
+Currently, the Notebook Aspect still sets the GID to the same as the UID if the primary GID is not set, but we expect to drop that behavior in the future and simply require a primary GID be set in the same way that a UID must be set.
 
 OpenID Connect flow
 -------------------
