@@ -414,6 +414,15 @@ The password is probably the better place to put the token in HTTP Basic Authent
 Gafaelfawr therefore supports both.
 As a fallback, if neither username nor password is ``x-oauth-basic``, it assumes the username is the token, but this is not documented (except here) since we'd prefer users not use it.
 
+OpenID Connect and LDAP
+-----------------------
+
+We were hopeful that we could limit authentication support to three configurations: COmanage plus LDAP, GitHub, or OpenID Connect plus LDAP.
+Support for OpenID Connect without LDAP, getting all user identity information from the OpenID Connect ID token, was originally implemented for NCSA, and was originally planned for retirement after the NCSA environments were retired.
+
+However, this configuration turned out to be helpful for the CC-IN2P3 deployment with Keycloak, since configuring Keycloak to expose user identity information in the OpenID Connect token was straightforward and granting direct query access to LDAP was more challenging.
+We therefore continue to support selectively configuring whether all, some, or none of the user identity information comes from LDAP or from OpenID Connect.
+
 User private groups
 -------------------
 
@@ -433,8 +442,8 @@ They are synthesized by Gafaelfawr in response to queries about the user.
 For deployments with a local identity management system, since the user's GIDs may have to correspond to expected GIDs for file systems maintained outside the scope of the Science Platform and requiring compatibility with other local infrastructure, we do not attempt to implement user private groups.
 Either they are provided by the local identity management system, or they're not.
 
-Primary GIDs
-------------
+GIDs
+----
 
 The initial implementation of the identity management system assigned a UID but not a primary GID, only GIDs for each group.
 Instead, the Notebook Aspect blindly assumed that it could use a GID equal to the UID when spawning lab pods, and no other part of the system used a primary GID.
@@ -447,6 +456,12 @@ For GitHub and federated identity deployments, this is simple since they use use
 
 We considered making the primary GID field optional, and it still formally is within the Gafaelfawr data model, but in practice it should always be set in order to make behavior well-defined.
 Currently, the Notebook Aspect still sets the GID to the same as the UID if the primary GID is not set, but we expect to drop that behavior in the future and simply require a primary GID be set in the same way that a UID must be set.
+
+We also at first attempted to enforce a rule that every group have a GID, and groups without GIDs were ignored.
+Unfortunately, CC-IN2P3's deployment using Keycloak only had a list of groups available, not GIDs, and they still needed to use those groups to calculate scopes.
+We therefore made the GID optional and allowed groups without GIDs to count for scopes.
+
+Groups without GIDs of course can't be used as supplemental groups when spawning containers for the Notebook Aspect, and those groups cannot be used for access control in POSIX file systems.
 
 OpenID Connect flow
 -------------------
