@@ -484,13 +484,14 @@ This would allow chaining Gafaelfawr instances.
 InfluxDB tokens
 ---------------
 
-Gafaelfawr contains support for minting authentication tokens for InfluxDB 1.x.
+Gafaelfawr used to contain support for minting authentication tokens for InfluxDB 1.x.
 This version of InfluxDB_ expects a JWT (using the ``HS256`` algorithm) created with a symmetric key shared between the InfluxDB server and the authentication provider.
 
 .. _InfluxDB: https://www.influxdata.com/
 
-InfluxDB 2.0 dropped this authentication mechanism, so we do not expect to continue using it indefinitely.
-It therefore isn't mentioned in the design or implementation documents.
+We never ended up using the Gafaelfawr integration, instead using username and password because it was easier to manage across deployments.
+InfluxDB 2.0 then dropped this authentication mechanism, so we removed the Gafaelfawr support.
+Hopefully, future InfluxDB releases will be able to use the OpenID Connect support.
 
 Storage
 =======
@@ -568,6 +569,23 @@ They are limited to administrators.
 This could have instead been enforced in more granular authorization checks on the more general routes, but this approach seemed simpler and easier to understand.
 It also groups all of a user's data under ``/users/{username}`` and is potentially extensible to other APIs later.
 
+``X-Auth-Request`` headers
+--------------------------
+
+Gafaelfawr exposes some information about the user to the protected application via ``X-Auth-Request-*`` headers.
+These can be requested via annotations on the NGINX ingress and then will be filled out in the headers of all relevant requests as received by the service.
+
+The original implementation tried to expose everything Gafaelfawr knew about the user in headers: full name, UID, group membership, all of their token scopes, their client IP, the logic used to authorize them, and so forth.
+We discovered in practice that no application used all of that information, and exposing some of it caused other problems.
+For example, the user's full name could be UTF-8, but HTTP headers don't allow UTF-8 by default, resulting in errors from the web service plumbing of backend services.
+For another example, the group data exposed was just a list of groups without GIDs, so services that needed the GIDs would need to obtain this another way anyway.
+
+In the current implementation, all of these headers have been dropped except for ``X-Auth-Request-User`` (containing the username) and, if we have an email address, ``X-Auth-Request-Email``.
+Username is the most widely used information, and some applications care only about it (for logging purposes, for example) and not any other user information.
+Email is used by the Portal and may be used by other applications.
+
+Applications that need more information than this should request a delegated token, either notebook or internal, and then use that token to make a request to the ``user-info`` route, which will return all of the user's identity information in as JSON, avoiding the parsing and character set problems of trying to insert it into and read it out of headers.
+
 Token UI
 ========
 
@@ -598,7 +616,6 @@ The **IDM-XXXX** references are to requirements listed in SQR-044_, which may pr
 
 .. rst-class:: compact
 
-- Implement user self-groups (groups with the same name as the username)
 - Register and validate ``remote_uri`` for OpenID Connect clients, and relax the requirement that they be in the same domain
 - Use multiple domains to control JavaScript access and user cookies
 - Filter out the token from ``Authorization`` headers of incoming requests
@@ -626,7 +643,6 @@ The **IDM-XXXX** references are to requirements listed in SQR-044_, which may pr
 - Merging accounts (IDM-1311)
 - Logging of administrative actions tagged appropriately (IDM-1400, IDM-1403, IDM-1404)
 - Affiliation-based groups (IDM-2001)
-- Group name restrictions (IDM-2004)
 - Expiration of group membership (IDM-2005)
 - Group renaming while preserving GID (IDM-2006)
 - Correct handling of group deletion (IDM-2007)
