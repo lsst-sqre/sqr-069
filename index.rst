@@ -569,6 +569,23 @@ They are limited to administrators.
 This could have instead been enforced in more granular authorization checks on the more general routes, but this approach seemed simpler and easier to understand.
 It also groups all of a user's data under ``/users/{username}`` and is potentially extensible to other APIs later.
 
+``X-Auth-Request`` headers
+--------------------------
+
+Gafaelfawr exposes some information about the user to the protected application via ``X-Auth-Request-*`` headers.
+These can be requested via annotations on the NGINX ingress and then will be filled out in the headers of all relevant requests as received by the service.
+
+The original implementation tried to expose everything Gafaelfawr knew about the user in headers: full name, UID, group membership, all of their token scopes, their client IP, the logic used to authorize them, and so forth.
+We discovered in practice that no application used all of that information, and exposing some of it caused other problems.
+For example, the user's full name could be UTF-8, but HTTP headers don't allow UTF-8 by default, resulting in errors from the web service plumbing of backend services.
+For another example, the group data exposed was just a list of groups without GIDs, so services that needed the GIDs would need to obtain this another way anyway.
+
+In the current implementation, all of these headers have been dropped except for ``X-Auth-Request-User`` (containing the username) and, if we have an email address, ``X-Auth-Request-Email``.
+Username is the most widely used information, and some applications care only about it (for logging purposes, for example) and not any other user information.
+Email is used by the Portal and may be used by other applications.
+
+Applications that need more information than this should request a delegated token, either notebook or internal, and then use that token to make a request to the ``user-info`` route, which will return all of the user's identity information in as JSON, avoiding the parsing and character set problems of trying to insert it into and read it out of headers.
+
 Token UI
 ========
 
