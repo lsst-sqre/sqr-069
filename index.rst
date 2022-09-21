@@ -403,6 +403,15 @@ This policy is discussed further in DMTN-235_.
 
 .. _DMTN-235: https://dmtn-235.lsst.io/
 
+Originally, all requested scopes for delegated tokens were also added as required scopes for access to a service.
+The intent was to (correctly) prevent delegated tokens from having scopes that the user's authenticating token did not have, thus allowing the user to bypass access controls.
+However, in practice this turned out to be too restrictive.
+The Portal Aspect, a major use of delegated tokens, wanted to request various scopes since it could make use of them if they were available, but users who did not have those scopes should still be able to access the Portal and get restricted functionality.
+
+The default was therefore changed so that the list of delegated scopes was an optional request.
+The delegated token gets all of the requested scopes that its parent token has, but if any are missing, they're left off the scopes for the delegated token but the authentication still succeeds.
+If the service wants the delegated scopes to be mandatory, it can add them to the authorization scopes so that a user must have all of the scopes or is not allowed to access the service.
+
 HTTP Basic Authentication
 -------------------------
 
