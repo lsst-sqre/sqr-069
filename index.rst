@@ -484,13 +484,14 @@ This would allow chaining Gafaelfawr instances.
 InfluxDB tokens
 ---------------
 
-Gafaelfawr contains support for minting authentication tokens for InfluxDB 1.x.
+Gafaelfawr used to contain support for minting authentication tokens for InfluxDB 1.x.
 This version of InfluxDB_ expects a JWT (using the ``HS256`` algorithm) created with a symmetric key shared between the InfluxDB server and the authentication provider.
 
 .. _InfluxDB: https://www.influxdata.com/
 
-InfluxDB 2.0 dropped this authentication mechanism, so we do not expect to continue using it indefinitely.
-It therefore isn't mentioned in the design or implementation documents.
+We never ended up using the Gafaelfawr integration, instead using username and password because it was easier to manage across deployments.
+InfluxDB 2.0 then dropped this authentication mechanism, so we removed the Gafaelfawr support.
+Hopefully, future InfluxDB releases will be able to use the OpenID Connect support.
 
 Storage
 =======
