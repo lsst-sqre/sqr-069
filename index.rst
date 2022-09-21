@@ -599,7 +599,6 @@ The **IDM-XXXX** references are to requirements listed in SQR-044_, which may pr
 
 .. rst-class:: compact
 
-- Implement user self-groups (groups with the same name as the username)
 - Register and validate ``remote_uri`` for OpenID Connect clients, and relax the requirement that they be in the same domain
 - Use multiple domains to control JavaScript access and user cookies
 - Filter out the token from ``Authorization`` headers of incoming requests
@@ -627,7 +626,6 @@ The **IDM-XXXX** references are to requirements listed in SQR-044_, which may pr
 - Merging accounts (IDM-1311)
 - Logging of administrative actions tagged appropriately (IDM-1400, IDM-1403, IDM-1404)
 - Affiliation-based groups (IDM-2001)
-- Group name restrictions (IDM-2004)
 - Expiration of group membership (IDM-2005)
 - Group renaming while preserving GID (IDM-2006)
 - Correct handling of group deletion (IDM-2007)
