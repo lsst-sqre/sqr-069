@@ -578,6 +578,23 @@ They are limited to administrators.
 This could have instead been enforced in more granular authorization checks on the more general routes, but this approach seemed simpler and easier to understand.
 It also groups all of a user's data under ``/users/{username}`` and is potentially extensible to other APIs later.
 
+Token editing
+-------------
+
+The original implementation of the API allowed the user to edit their user tokens to change the name, scopes, and expiration.
+The thought was that this would allow the user to correct errors without invalidating a token that may be in use in various places.
+
+There were several bugs with this initially, including updating only the database and not Redis with new scope information and not updating expirations of child tokens if the expiration was shortened.
+Those were discovered and fixed over time.
+
+However, user token editing is not commonly supported.
+(GitHub doesn't support it, for example.)
+It may therefore pose unexpected security concerns, and it's additional UI surface to maintain.
+We would also like to encourage token rotation and use of tokens in only one place, so forcing users to invalidate a token and create a new one is not the worst outcome.
+
+We therefore dropped support for allowing users to edit their own tokens.
+That support has been kept for administrators, since it's useful for fixing bugs and may be useful in some emergency response situations, and so that we can retain and continue testing the debugged code in case we change our minds later.
+
 ``X-Auth-Request`` headers
 --------------------------
 
