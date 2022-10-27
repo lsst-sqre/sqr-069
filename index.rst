@@ -547,6 +547,37 @@ See DMTN-193_ for more information, including a new proposed design that will li
 
 .. _dmtn-193: https://dmtn-193.lsst.io/
 
+Kubernetes resources
+====================
+
+The initial implementation of the Kubernetes operator to create ``Secret`` resources from ``GafaelfawrServiceToken`` custom resources was hand-written using only kubernetes_asyncio_.
+This worked, but it required carefully managing the watch and object generations, and didn't easily support periodically rechecking all generated tokens for validity.
+
+.. _kubernetes_asyncio: https://github.com/tomplus/kubernetes_asyncio
+
+After positive experiences using it in other projects, we decided to switch to Kopf_ to do the heavy lifting for the Kubernetes operator.
+The Kopf framework does all the work of managing the Kubernetes watch and storing state in Kubernetes, and supports triggering code both on creation and modification of resources and on a timer, making it easy to implement the periodic recheck.
+
+.. _Kopf: https://kopf.readthedocs.io/en/stable/
+
+There are a few drawbacks to Kopf, unfortunately:
+
+- Kopf doesn't easily support testing with a mock Kubernetes layer and wants to be tested against a real cluster.
+  We use Minikube_ for testing inside GitHub Actions, but this unfortunately means a long test/update cycle when debugging since finishing the testing action can take about 10-15 minutes.
+  Writing tests with Kopf also requires pausing the foreground test for an indeterminate amount of time until the background operator finishes, since there is no way for the operator to signal that it's done.
+  That means tests have to be littered with arbitrary delays and take longer to run than they would otherwise.
+
+.. _Minikube: https://minikube.sigs.k8s.io/docs/
+
+- Kopf allows handlers to return information that should be stored in the ``status`` field of the Kubernetes object, but the key under which that information is stored is forced to match the name of the handler function.
+  Object create and update handlers take the same signature, but timer handlers do not, so there is no way to store the state from the last modification and the state from a periodic recheck in the same fields in the object.
+
+- Timers and create/update handlers don't appear to be protected against each other and can be invoked at the same time and race.
+  We are working around this by using the ``idle`` parameter to the timer, which tells it to avoid acting on objects that have changed in the recent past.
+  This hopefully gives the create or update handler long enough to complete.
+
+We've chosen to live with these drawbacks since using Kopf makes it easier to add more operators, and we plan to add another one to manage ``Ingress`` objects with Gafaelfawr configuration.
+
 Token API
 =========
 
