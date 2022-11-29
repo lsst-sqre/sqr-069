@@ -1,7 +1,5 @@
 :tocdepth: 1
 
-.. sectnum::
-
 Abstract
 ========
 
@@ -13,7 +11,7 @@ The historical background here may be useful for understanding design and implem
 .. note::
 
    This is part of a tech note series on identity management for the Rubin Science Platform.
-   The other two primary documents are DMTN-234_, which describes the high-level design; and DMTN-224_, which describes the implementation.
+   The other two primary documents are :dmtn:`234`, which describes the high-level design; and :dmtn:`224`, which describes the implementation.
    See the `references section of DMTN-224 <https://dmtn-224.lsst.io/#references>`__ for a complete list of related documents.
 
 .. _DMTN-234: https://dmtn-234.lsst.io/
@@ -43,10 +41,7 @@ We considered using GitHub rather than InCommon as an identity source, and indee
 However, not every expected eventual user of the Science Platform will have a GitHub account, and GitHub lacks COmanage's support for onboarding flows, approval, and self-managed groups.
 We also expect to make use of InCommon as a source of federated identity since it supports many of our expected users, and GitHub does not provide easy use of InCommon as a source of identities.
 
-Vendor evaluations of CILogon and GitHub as identity providers for the Science Platform can be found in SQR-045_ and SQR-046_, respectively.
-
-.. _SQR-045: https://sqr-045.lsst.io/
-.. _SQR-046: https://sqr-046.lsst.io/
+Vendor evaluations of CILogon and GitHub as identity providers for the Science Platform can be found in :sqr:`045` and :sqr:`046`, respectively.
 
 Subsequent to that decision, we became aware of Auth0_ and its B2C authentication service, which appears to be competitive with CILogon on cost and claims to also support federated identity.
 We have not done a deep investigation of that alternative.
@@ -95,7 +90,7 @@ One example would be a Science Platform deployment with a partial set of service
 These use cases are not well-supported by the current design.
 
 In return, this design provides massive improvements in simplicitly and ease of understanding.
-It enables the use of opaque tokens backed by a centralized data store (see :ref:`Token format <token-format>`, which in turn provides simple revocation and short tokens.
+It enables the use of opaque tokens backed by a centralized data store (see :ref:`token-format`), which in turn provides simple revocation and short tokens.
 It limits the scope of compromise of the identity management system to a single deployment.
 It also avoids the numerous complexities around token lifetime, management, logging, and concepts of identity inherent in a federated design.
 For example, different deployments of the Science Platform are likely to have different sets of authorized users, which would have to be taken into account for cross-cluster authentication and authorization.
@@ -180,7 +175,7 @@ Advantages:
 .. rst-class:: compact
 
 #. Uses the same UI as the onboarding and identity management process
-#. Possible (albeit complex) to automatically generate GIDs using ``voPosixGroup`` (see :ref:`voPosixGroup <voposixgroup>`)
+#. Possible (albeit complex) to automatically generate GIDs using ``voPosixGroup`` (see :ref:`voposixgroup`)
 
 Disadvantages:
 
@@ -399,9 +394,7 @@ The balance the identity management design strikes is to reserve scopes for cont
 Controlling access to specific data sets within the service is done with groups, not scopes.
 
 This appears to strike a reasonable balance between allowing users and service configuration to limit the access of delegated tokens, and avoiding presenting the user with too many confusing options when creating a new token.
-This policy is discussed further in DMTN-235_.
-
-.. _DMTN-235: https://dmtn-235.lsst.io/
+This policy is discussed further in :dmtn:`235`.
 
 Originally, all requested scopes for delegated tokens were also added as required scopes for access to a service.
 The intent was to (correctly) prevent delegated tokens from having scopes that the user's authenticating token did not have, thus allowing the user to bypass access controls.
@@ -436,11 +429,9 @@ User private groups
 -------------------
 
 Ideally, we'd prefer to implement user private groups (where each user is a member of a group with a matching name and the same GID as the user's UID) for all deployments.
-Using user private groups allows all access control to be done based on group membership, which is part of the authorization design for Butler (see DMTN-182_).
+Using user private groups allows all access control to be done based on group membership, which is part of the authorization design for Butler (see :dmtn:`182`).
 Unfortunately, when a local identity management system is in play, there's no good way to do this because there's no safe GID to assign to the user.
 The local identity management system should also be canonical for the user's primary GID.
-
-.. _DMTN-182: https://dmtn-182.lsst.io/
 
 We therefore implement user private groups only for the federated identity case, where we control the UID and GID spaces and can reserve all the GIDs that match UIDs for user private groups and always synthesize the group, and for the GitHub case, where we blindly use the user ID as a group ID for the user private group and the primary GID.
 For GitHub, this is not ideal since it may conflict with a team ID and thus a regular group ID, but given the small number of users and the large ID space, we're hoping we won't have a conflict.
@@ -543,9 +534,7 @@ The cookie still represents a bearer token, and an attacker who gains access to 
 
 The current design uses domain-scoped cookies and assumes the entire Science Platform deployment runs within a single domain.
 This is not a good long-term assumption, since there are serious web security drawbacks to using a single domain and a single web security context.
-See DMTN-193_ for more information, including a new proposed design that will likely be adopted in the future.
-
-.. _dmtn-193: https://dmtn-193.lsst.io/
+See :dmtn:`193` for more information, including a new proposed design that will likely be adopted in the future.
 
 Kubernetes resources
 ====================
@@ -667,7 +656,7 @@ Remaining work
 ==============
 
 The following requirements should be satisfied by the Science Platform identity management system, but are not yet part of the design.
-The **IDM-XXXX** references are to requirements listed in SQR-044_, which may provide additional details.
+The **IDM-XXXX** references are to requirements listed in :sqr:`044`, which may provide additional details.
 
 .. _SQR-044: https://sqr-044.lsst.io/
 
@@ -695,7 +684,7 @@ The **IDM-XXXX** references are to requirements listed in SQR-044_, which may pr
 - User class markers (IDM-1103, IDM-1310)
 - Quotas (IDM-1200, IDM-1201, IDM-1202, IDM-1203, IDM-1303, IDM-1401, IDM-1402, IDM-2100, IDM-2101, IDM-2102, IDM-2103, IDM-2201, IDM-3003)
 - Administrator verification of email addresses (IDM-1302)
-- User impersonation (IDM-1304, IDM-1305, IDM-2202)
+- User impersonation (see :sqr:`071`) (IDM-1304, IDM-1305, IDM-2202)
 - Review newly-created accounts (IDM-1309)
 - Merging accounts (IDM-1311)
 - Logging of administrative actions tagged appropriately (IDM-1400, IDM-1403, IDM-1404)
