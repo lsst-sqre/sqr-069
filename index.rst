@@ -565,7 +565,12 @@ There are a few drawbacks to Kopf, unfortunately:
   We are working around this by using the ``idle`` parameter to the timer, which tells it to avoid acting on objects that have changed in the recent past.
   This hopefully gives the create or update handler long enough to complete.
 
-We've chosen to live with these drawbacks since using Kopf makes it easier to add more operators, and we plan to add another one to manage ``Ingress`` objects with Gafaelfawr configuration.
+We've chosen to live with these drawbacks since using Kopf makes it easier to add more operators.
+We've now also added a ``GafaelfawrIngress`` custom resource, which is used as a template to generate an ``Ingress`` resource with the correct annotations.
+
+The initial implementation of the Kubernetes custom resource support extracted information directly from the dictionary returned by the Kubernetes API.
+In implementing ``GafaelfawrIngress`` support, it became obvious that using Pydantic to do the parsing of the custom object saves a lot of work and tedium.
+This approach is now used for all custom resources.
 
 Token API
 =========
@@ -657,8 +662,6 @@ Remaining work
 
 The following requirements should be satisfied by the Science Platform identity management system, but are not yet part of the design.
 The **IDM-XXXX** references are to requirements listed in :sqr:`044`, which may provide additional details.
-
-.. _SQR-044: https://sqr-044.lsst.io/
 
 .. rst-class:: compact
 
