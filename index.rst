@@ -14,9 +14,6 @@ The historical background here may be useful for understanding design and implem
    The other two primary documents are :dmtn:`234`, which describes the high-level design; and :dmtn:`224`, which describes the implementation.
    See the `references section of DMTN-224 <https://dmtn-224.lsst.io/#references>`__ for a complete list of related documents.
 
-.. _DMTN-234: https://dmtn-234.lsst.io/
-.. _DMTN-224: https://dmtn-224.lsst.io/
-
 Identity
 ========
 
