@@ -109,12 +109,15 @@ Two possible approaches to consider (neither of which have been implemented):
 - Address the issue via policy.
   In order to be added to the administrators group in COmanage (the one that maps to an ``admin:token`` scope, or other similar privileged scopes), require that all configured sources of identity use multifactor authentication.
   We probably couldn't enforce this programmatically, since the administrator could add another source of identity and it would be hard to know that this has happened, but that may not be necessary.
+
   One variation on this approach that's worth considering is to restrict the most privileged access to a second account (conventionally, ``<username>-admin``) kept separate from regular day-to-day use and testing of the Science Platform.
+  However, we have already used the ``<username>-admin`` accounts in the lsst.cloud Google Cloud Identity domain as the identities for administrative access to COmanage, and COmanage doesn't support using the same identity for both administering COmanage itself and being a member of a COmanage organization.
 
 COmanage
 ========
 
 After choosing COmanage as the user identity store, we had to make several decisions about how to configure it, what identity management features it should provide, and what features we should implement external to it.
+See :sqr:`055` for the details of the current COmanage configuration.
 
 Enrollment flow
 ---------------
