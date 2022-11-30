@@ -154,9 +154,18 @@ The difficult part of that is defining what the business logic should be.
 To see the affiliation attributes sent by an identity provider, go directly to CILogon_ and log on via that provider.
 On the resulting screen, look at the User Attributes section.
 
-Currently, we're using the default access control rule for approving petitions (the COmanage terminology for approving new users) and putting anyone who will be approving new users in the ``CO:admins`` group.
-This means they also have access to change the configuration of the COmanage instance.
-If that becomes a problem, we can change the enrollment flow to grant approval access to a different group, and make sure that the people doing approval are also owners of any relevant groups whose membership they may need to change.
+We're using the default access control rule for approving petitions (the COmanage terminology for approving new users) and putting anyone who will be approving new users in the ``CO:admins`` group.
+This means they also have access to change the configuration of the COmanage instance, which isn't desirable, but that also means they can edit people, which is desirable.
+
+We experimented with creating a separate approvers group and modifying the enrollment flow to send approvals to that group instead, but we ran into two problems:
+
+- The list of pending petitions normally shows up in the sidebar under People, but the People heading is hidden if the user is not in ``CO:admins``, so the only visibility of pending petitions is through the notification.
+  That also requires clicking through the notification and finding the URL for the petition (or waiting for the email message).
+
+- There is no way for the user to edit people without being a member of ``CO:admins``.
+  While that isn't common, it seems like something we'll need eventually.
+
+We've therefore stayed with putting approvers in ``CO:admins`` and asking them not to change the configuration.
 
 Group management
 ----------------
