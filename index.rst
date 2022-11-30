@@ -154,6 +154,10 @@ The difficult part of that is defining what the business logic should be.
 To see the affiliation attributes sent by an identity provider, go directly to CILogon_ and log on via that provider.
 On the resulting screen, look at the User Attributes section.
 
+Currently, we're using the default access control rule for approving petitions (the COmanage terminology for approving new users) and putting anyone who will be approving new users in the ``CO:admins`` group.
+This means they also have access to change the configuration of the COmanage instance.
+If that becomes a problem, we can change the enrollment flow to grant approval access to a different group, and make sure that the people doing approval are also owners of any relevant groups whose membership they may need to change.
+
 Group management
 ----------------
 
