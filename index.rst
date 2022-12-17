@@ -680,7 +680,6 @@ The **IDM-XXXX** references are to requirements listed in :sqr:`044`, which may 
 
 - Register and validate ``remote_uri`` for OpenID Connect clients, and relax the requirement that they be in the same domain
 - Use multiple domains to control JavaScript access and user cookies
-- Filter out the token from ``Authorization`` headers of incoming requests
 - Restrict OpenID Connect authentication by scope
 - Force two-factor authentication for administrators (IDM-0007)
 - Force reauthentication to provide an affiliation (IDM-0009)
@@ -698,7 +697,7 @@ The **IDM-XXXX** references are to requirements listed in :sqr:`044`, which may 
 - Notifying users of upcoming account expiration (IDM-1004)
 - Notifying users about email address changes (IDM-1101)
 - User class markers (IDM-1103, IDM-1310)
-- Quotas (IDM-1200, IDM-1201, IDM-1202, IDM-1203, IDM-1303, IDM-1401, IDM-1402, IDM-2100, IDM-2101, IDM-2102, IDM-2103, IDM-2201, IDM-3003)
+- Quotas (see :sqr:`073`) (IDM-1200, IDM-1201, IDM-1202, IDM-1203, IDM-1303, IDM-1401, IDM-1402, IDM-2100, IDM-2101, IDM-2102, IDM-2103, IDM-2201, IDM-3003)
 - Administrator verification of email addresses (IDM-1302)
 - User impersonation (see :sqr:`071`) (IDM-1304, IDM-1305, IDM-2202)
 - Review newly-created accounts (IDM-1309)
