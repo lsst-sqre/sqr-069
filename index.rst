@@ -421,13 +421,17 @@ If the service wants the delegated scopes to be mandatory, it can add them to th
 HTTP Basic Authentication
 -------------------------
 
-The protocol for HTTP Basic Authentication, using ``x-oauth-basic`` as either the username or password along with the token, is reportedly based on GitHub support for HTTP Basic Authentication.
-GitHub currently appears to recognize tokens wherever they're put and does not require the ``x-oauth-basic`` string.
-(This would likely be wise for Gafaelfawr to do as well, but it has not yet been implemented.)
+In the current implementation, the user can put the token in either the username or password field, and the other field is ignored.
+If both fields are tokens, they must be identical or the authentication is rejected.
+We considered arbitrarily picking one to prefer, but using two mismatched tokens feels like a misconfiguration that may be confusing, so diagnosing it with an error seemed better.
 
 The password is probably the better place to put the token in HTTP Basic Authentication, since software will know to protect or obscure it, but common practice in other APIs that support using tokens for HTTP Basic Authentication is to use the username.
 Gafaelfawr therefore supports both.
-As a fallback, if neither username nor password is ``x-oauth-basic``, it assumes the username is the token, but this is not documented (except here) since we'd prefer users not use it.
+
+Previously, the user had to put ``x-oauth-basic`` in whatever field wasn't the token.
+This was reportedly based on GitHub support for HTTP Basic Authentication.
+However, GitHub currently recognizes tokens wherever they're put and does not require the ``x-oauth-basic`` string, so Gafaelfawr was switched to match.
+This approach is easier to document and explain.
 
 OpenID Connect and LDAP
 -----------------------
