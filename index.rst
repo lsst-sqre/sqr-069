@@ -124,11 +124,12 @@ It's possible to then configure a return URL to which the user goes after enroll
 We will need to customize the email messages and web pages presented as part of the approval flow.
 This has not yet been done.
 
-It's not clear yet whether we will need to automate additional changes to a person's record after onboarding, such as adding them to groups, or if this will be handled manually during the approval process.
-If we do need to automate this, we may need to do that via the COmanage API.
+In order to save work for the approver, all users are automatically added to the general users group (``g_users``) when approved.
+Additional group memberships must be added manually by the approver or by some other group owner.
 
 The current enrollment approach relies solely on the "Self Signup with Approval" flow, but an invitation flow may make more sense in some cases since it allows pre-approval of the user.
 Currently, the user has to be told to go through the signup process and then the approver has to check back once this has been done and finish the approval, which requires an additional point of coordination.
+We have made extensive customizations of the "Self Signup with Approval" flow, which would need to be duplicated in any other flow we decided to use.
 
 Email verification
 ^^^^^^^^^^^^^^^^^^
@@ -153,6 +154,10 @@ The difficult part of that is defining what the business logic should be.
 
 To see the affiliation attributes sent by an identity provider, go directly to CILogon_ and log on via that provider.
 On the resulting screen, look at the User Attributes section.
+
+COmanage also does not retain the GitHub username for users that use GitHub as their authentication mechanism.
+For users authenticating with GitHub, essentially no information about the user except for their email address on GitHub is retrieved.
+For GitHub and Google authentications, approval will likely need to be done based on information outside of COmanage.
 
 We're using the default access control rule for approving petitions (the COmanage terminology for approving new users) and putting anyone who will be approving new users in the ``CO:admins`` group.
 This means they also have access to change the configuration of the COmanage instance, which isn't desirable, but that also means they can edit people, which is desirable.
