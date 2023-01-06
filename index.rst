@@ -131,6 +131,18 @@ The current enrollment approach relies solely on the "Self Signup with Approval"
 Currently, the user has to be told to go through the signup process and then the approver has to check back once this has been done and finish the approval, which requires an additional point of coordination.
 We have made extensive customizations of the "Self Signup with Approval" flow, which would need to be duplicated in any other flow we decided to use.
 
+Names
+^^^^^
+
+Ideally, we would prompt for two names: the nickname by which the person wants to be known, and the full name they use in professional contexts for matching and approval purposes.
+We do not want to parse either name into components.
+This creates `tons of cultural problems <https://www.kalzumeus.com/2010/06/17/falsehoods-programmers-believe-about-names/>`__.
+
+Unfortunately, COmanage's data model requires names be broken into components and doesn't have a data model that neatly matches this ideal.
+For now, we are restricting the name fields to given and family name, making family name optional, and adding explanatory text asking people to use the name they use in professional contexts.
+
+We may revisit this later.
+
 Email verification
 ^^^^^^^^^^^^^^^^^^
 
