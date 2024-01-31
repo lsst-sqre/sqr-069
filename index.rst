@@ -1,12 +1,13 @@
-:tocdepth: 1
+####################################################
+Implementation decisions for RSP identity management
+####################################################
 
-Abstract
-========
+.. abstract::
 
-The identity management, authentication, and authorization component of the Rubin Science Platform is responsible for maintaining a list of authorized users and their associated identity information, authenticating their access to the Science Platform, and determining which services they are permitted to use.
-This tech note collects decisions, analysis, and trade-offs made in the implementation of the system that may be of future interest.
-It also collects a list of intended future work.
-The historical background here may be useful for understanding design and implementation decisions, but would clutter other documents and distract from the details of the system as implemented.
+   The identity management, authentication, and authorization component of the Rubin Science Platform is responsible for maintaining a list of authorized users and their associated identity information, authenticating their access to the Science Platform, and determining which services they are permitted to use.
+   This tech note collects decisions, analysis, and trade-offs made in the implementation of the system that may be of future interest.
+   It also collects a list of intended future work.
+   The historical background here may be useful for understanding design and implementation decisions, but would clutter other documents and distract from the details of the system as implemented.
 
 .. note::
 
@@ -91,6 +92,10 @@ It enables the use of opaque tokens backed by a centralized data store (see :ref
 It limits the scope of compromise of the identity management system to a single deployment.
 It also avoids the numerous complexities around token lifetime, management, logging, and concepts of identity inherent in a federated design.
 For example, different deployments of the Science Platform are likely to have different sets of authorized users, which would have to be taken into account for cross-cluster authentication and authorization.
+
+We are supporting a limited type of federated identity by exposing an OpenID Connect server that can be used to request an instance of the Science Platform authenticate users and return user metadata that can be used at other sites.
+This is primarily for International Data Access Centers (IDACs).
+See :dmtn:`253` for more details.
 
 Forced multifactor authentication
 ---------------------------------
@@ -393,8 +398,9 @@ A single token mechanism based on opaque bearer tokens, where each token maps to
 This choice forgoes the following advantages of using JWTs internally:
 
 - Some third-party services may consume JWTs directly and expect to be able to validate them.
-  Gafaelfawr therefore had to implement OpenID Connect authentication (with separate JWT tokens) as an additional authentication flow unrelated to the token authentication system used by most routes.
-  However, this implementation can be minimal and is limited in scope to only Science Platform services that require OpenID Connect (which are expected to be a small subset of services and may not be required in the federated identity deployment case at all).
+  JWTs, via OpenID Connect, are also the standard way of delegating authentication to a different site.
+  Gafaelfawr therefore had to implement OpenID Connect authentication (with separate JWT tokens) as an additional authentication and authorization flow unrelated to the token authentication system used by most routes.
+  However, this implementation can be minimal and is limited in scope to only IDACs and Science Platform services that require OpenID Connect (which are expected to be a small subset of services and may not be required in the federated identity deployment case at all).
 
 - If a user API call sets off a cascade of numerous internal API calls, avoiding the need to consult a data store to validate opaque tokens could improve performance.
   JWTs can be verified directly without needing any state other than the (relatively unchanging) public signing key.
@@ -406,7 +412,7 @@ This choice forgoes the following advantages of using JWTs internally:
 
 The primary driver for using opaque tokens rather than JWTs is length, which in turn is driven by the requirement to support HTTP Basic authentication.
 If all uses of HTTP Basic authentication can be shifted to token authentication and that requirement dropped, the decision to use opaque tokens rather than JWTs could be revisited.
-However, using short tokens still provides benefits for each cut and paste of tokens, and provides a simple and reliable revocation mechanism.
+However, using short tokens still provides minor benefits for each cut and paste of tokens, and provides a simple and reliable revocation mechanism.
 
 Closely related to this decision is to (where possible) dynamically look up group membership rather than storing it with (or in) the authentication token.
 The primary advantage of storing group membership and other authorization information in the token is faster access to the data: the authorization information can be retrieved without querying an external source.
@@ -414,7 +420,7 @@ Token scopes, for example, are stored with the token to make use of this propert
 But group membership is often dynamic, and users may not want to (and will be confused by having to) revoke their token and recreate it to see changes to their access.
 The current approach uses a compromise of dynamic group membership, static scopes tied to the token, and a five-minute cache to avoid excessive load on the underlying group system and excessive query latency in Gafaelfawr.
 
-Notebook Aspect notebooks will still likely have to be relaunched to pick up new or changed group memberships, since the user's GIDs are determined when the notebook pod is launched.
+Regardless of the group membership approach taken by the authentication system, Notebook Aspect notebooks would still have to be relaunched to pick up new or changed group memberships, since the user's GIDs are determined when the notebook pod is launched and are part of the Kubernetes pod definition.
 
 Token scopes
 ------------
@@ -453,11 +459,26 @@ This approach is easier to document and explain.
 OpenID Connect and LDAP
 -----------------------
 
-We were hopeful that we could limit authentication support to three configurations: COmanage plus LDAP, GitHub, or OpenID Connect plus LDAP.
-Support for OpenID Connect without LDAP, getting all user identity information from the OpenID Connect ID token, was originally implemented for NCSA, and was originally planned for retirement after the NCSA environments were retired.
+The current implementation of OpenID Connect as a source of authentication supports nearly-arbitrary combinations of data from LDAP and data from the OpenID Connect ID token.
+Previously, different Science Platform environments used different combinations of sources of data.
+This is no longer the case; now, all deployments that use OpenID Connect get all of the user metadata from LDAP.
 
-However, this configuration turned out to be helpful for the CC-IN2P3 deployment with Keycloak, since configuring Keycloak to expose user identity information in the OpenID Connect token was straightforward and granting direct query access to LDAP was more challenging.
-We therefore continue to support selectively configuring whether all, some, or none of the user identity information comes from LDAP or from OpenID Connect.
+One of the problems with getting data from the ID token is that Keycloak, a very common OpenID Connect provider, cannot provide GID information in the ID token (at least with standard LDAP configurations).
+It can be configured to provide a list of groups and a list of GIDs, but not correlate the two or keep the same ordering.
+Since the Science Platform relies on GIDs for correct operation, in practice direct queries to LDAP are required.
+
+We therefore plan on limiting authentication support to three configurations: GitHub, COmanage plus LDAP, or OpenID Connect plus LDAP.
+For the last two methods, only the username from the OpenID Connect ID token will be used, and all other data will be retrieved from LDAP.
+
+ForgeRock support
+-----------------
+
+The CC-IN2P3 deployment of the Science Platform uses ForgeRock Identity Management as its ultimate source of some identity information.
+Originally, CC-IN2P3 wanted to avoid using LDAP and expose user metadata via Keycloak.
+When we discovered that it was not possible for Keycloak to provide groups with their GIDs, Gafaelfawr implemented limited support for API calls to the ForgeRock Identity Management Server to retrieve the GID of a group.
+
+CC-IN2P3 eventually switched to LDAP for user metadata, which is ideal since that's the mechanism used in other places that don't use GitHub.
+We expect to drop ForgeRock support in an upcoming release.
 
 User private groups
 -------------------
@@ -488,14 +509,13 @@ Blindly copying the UID caused lab pods to be running with unexpected GIDs that 
 The concept (and data element) of a primary GID was introduced to solve this problem and added to the other types of deployments.
 For GitHub and federated identity deployments, this is simple since they use user private groups with a GID matching the UID, so that GID (equal to the UID) can also be made the primary GID.
 
-We considered making the primary GID field optional, and it still formally is within the Gafaelfawr data model, but in practice it should always be set in order to make behavior well-defined.
+We considered making the primary GID field optional, and it still formally is within the Gafaelfawr data model, but we expect to make it mandatory in the future.
 Currently, the Notebook Aspect still sets the GID to the same as the UID if the primary GID is not set, but we expect to drop that behavior in the future and simply require a primary GID be set in the same way that a UID must be set.
 
 We also at first attempted to enforce a rule that every group have a GID, and groups without GIDs were ignored.
 Unfortunately, CC-IN2P3's deployment using Keycloak only had a list of groups available, not GIDs, and they still needed to use those groups to calculate scopes.
 We therefore made the GID optional and allowed groups without GIDs to count for scopes.
-
-Groups without GIDs of course can't be used as supplemental groups when spawning containers for the Notebook Aspect, and those groups cannot be used for access control in POSIX file systems.
+However, in practice CC-IN2P3 ended up needing the GIDs for groups for the Notebook Aspect, so this support is also expected to be removed in the future.
 
 OpenID Connect flow
 -------------------
@@ -503,17 +523,16 @@ OpenID Connect flow
 Currently, when Gafaelfawr acts as an OpenID Connect provider, it does not do any access control and does not check the scopes of the token.
 It relies entirely on the service initiating the OpenID Connect flow to do authorization checks.
 
-Each OpenID Connect client must be configured with a client ID and secret in an entry in a JSON blob in the Gafaelfawr secret.
+Each OpenID Connect client must be configured with a client ID, secret, and return URL in an entry in a JSON blob in the Gafaelfawr secret.
 It would be possible to add a list of required scopes to that configuration and check the authenticating token against those scopes during the OpenID Connect authentication.
 If the user's scopes are not sufficient, Gafaelfawr could reject the authentication with an error.
 
 The configuration of OpenID Connect clients is currently rather obnoxious, since it requires manipulating a serialized JSON blob inside the Gafaelfawr secret.
 It would be nice to have a better way of configuring the client IDs and any supporting configuration, such as a list of scopes, and associating them with client secrets kept in some secure secret store.
+It may be possible to do this with the new Phalanx secrets sync tool using a layout similar to pull secrets, or by moving the configuration other than the secrets into the main Gafaelfawr configuration and merging that with the secrets from a different source (perhaps a convention for secret names, perhaps something like pull-secret).
 
-Currently, Gafaelfawr does not register the ``redirect_uri`` parameter from an OpenID Connect client.
-As long as the client authenticates, it allows redirection to any URL within the same domain.
-If the valid ``redirect_uri`` values were registered along with the client and validated against the provided ``redirect_uri``, Gafaelfawr could extend OpenID Connect support to relying parties outside of the Science Platform deployment.
-This would allow chaining Gafaelfawr instances.
+The implementation of the OpenID Connect protocol in Gafaelfawr is not fully conformant and doesn't support several optional features.
+See the discussion in :dmtn:`253` for more details.
 
 InfluxDB tokens
 ---------------
@@ -665,7 +684,7 @@ We discovered in practice that no application used all of that information, and 
 For example, the user's full name could be UTF-8, but HTTP headers don't allow UTF-8 by default, resulting in errors from the web service plumbing of backend services.
 For another example, the group data exposed was just a list of groups without GIDs, so services that needed the GIDs would need to obtain this another way anyway.
 
-In the current implementation, all of these headers have been dropped except for ``X-Auth-Request-User`` (containing the username) and, if we have an email address, ``X-Auth-Request-Email``.
+In the current implementation, all of these headers have been dropped except for ``X-Auth-Request-User`` (containing the username), ``X-Auth-Request-Email`` (if we have an email address), and ``X-Auth-Request-Token`` (containing a delegated token, if one was requested).
 Username is the most widely used information, and some applications care only about it (for logging purposes, for example) and not any other user information.
 Email is used by the Portal and may be used by other applications.
 
@@ -699,9 +718,9 @@ The **IDM-XXXX** references are to requirements listed in :sqr:`044`, which may 
 
 .. rst-class:: compact
 
-- Register and validate ``remote_uri`` for OpenID Connect clients, and relax the requirement that they be in the same domain
 - Use multiple domains to control JavaScript access and user cookies
 - Restrict OpenID Connect authentication by scope
+- Improved OpenID Connect protocol support
 - Force two-factor authentication for administrators (IDM-0007)
 - Force reauthentication to provide an affiliation (IDM-0009)
 - Changing usernames (IDM-0012)
