@@ -534,6 +534,14 @@ It may be possible to do this with the new Phalanx secrets sync tool using a lay
 The implementation of the OpenID Connect protocol in Gafaelfawr is not fully conformant and doesn't support several optional features.
 See the discussion in :dmtn:`253` for more details.
 
+The original implementation returned a JWT as both the ID token and the access token, and then accepted access tokens for authentication to the userinfo endpoint.
+While this worked, it's not in the spirit of the OpenID Connect protocol and would create other problems if we ever wished to issue access tokens that could be used to authenticate to services other than Gafaelfawr.
+The current implementation instead creates a Gafaelfawr token of type ``oidc`` with no scopes and returns that as the access token instead, and requires the token used to authenticate to the OpenID Connect userinfo endpoint to be of type ``oidc``.
+If we later want to allow these tokens to be used for other purposes, we could allow the client to request scopes and add scopes to this access token.
+
+Currently, the ``oidc`` token does not record the OpenID Connect client to which it was issued.
+This should be added, but requires extending the database schema further.
+
 InfluxDB tokens
 ---------------
 
@@ -588,6 +596,30 @@ The cookie still represents a bearer token, and an attacker who gains access to 
 The current design uses domain-scoped cookies and assumes the entire Science Platform deployment runs within a single domain.
 This is not a good long-term assumption, since there are serious web security drawbacks to using a single domain and a single web security context.
 See :dmtn:`193` for more information, including a new proposed design that will likely be adopted in the future.
+
+Database schema migrations
+--------------------------
+
+Gafaelfawr supports database schema migrations using Alembic_, chosen because we were already using SQLAlchemy for the storage layer.
+The database is marked with its schema version (using the normal Alembic table), and all components of Gafaelfawr refuse to start if the schema version is too old.
+
+.. _Alembic: https://alembic.sqlalchemy.org/en/latest/
+
+Schema migrations are performed by setting the ``config.updateSchema`` setting in Phalanx_ and then syncing the Gafaelfawr chart.
+This uses a Helm pre-install and pre-upgrade hook to update the schema before syncing any other Kubernetes resources.
+The same approach should be used for bootstrapping a new cluster; if the schema does not already exist, that same hook will create the schema in an empty database.
+
+.. _Phalanx: https://phalanx.lsst.io/
+
+Handling of resources like ``ConfigMap`` and ``Secret`` objects used by Helm pre-install and pre-upgrade hooks is unclear.
+Gafaelfawr errs on the side of caution and uses a separate ``ConfigMap`` and ``VaultSecret`` for the hook that copies information from the regular ``ConfigMap`` and ``VaultSecret``.
+These resources are apparently not automatically deleted by Helm after the hook completes, unlike the ``Job``, so have to be cleaned up manually after a schema migration.
+
+Performing a schema migration while Gafaelfawr is running is not, in general, safe, but Helm doesn't provide a simple mechanism to stop the service, perform the migration, and then restart the service.
+Stopping the service before a migration must be done manually.
+For this reason, we recommend against leaving ``config.updateSchema`` enabled, except in dev environments where the database is frequently reinitialized.
+
+Alembic works somewhat poorly with async database code, which requires some complex workarounds in the Gafaelfawr source code.
 
 Kubernetes resources
 ====================
