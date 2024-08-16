@@ -156,8 +156,12 @@ This approach has problems with email anti-virus systems that retrieve all links
 That anti-virus check will automatically confirm the email address with no user interaction required, thus defeating the point of the check.
 
 COmanage added a configuration setting to address this, allowing one to force a confirmation page or authentication or both to confirm an address.
-Our configuration adds the confirmation page, which requires the user press a :guilabel:`Confirm` button after visiting the page.
-Anti-virus systems won't interact with the retrieved page, and thus won't confirm the email address with that setting.
+Initially, we tried a configuration that required the user to press a :guilabel:`Confirm` button after visiting the page.
+The hope was that anti-virus systems wouldn't interact with the retrieved page, and thus won't confirm the email address with that setting.
+Alas, this proved too optimistic: NASA's email server seemed to be aggressively following all links on the page and still broke the email verification.
+
+Our current configuration therefore goes one step further and instead sends a verification code in the email message without any links.
+The user then has to enter that verification code into a web form they're shown during the enrollment process in order to verify their email.
 
 User approval
 ^^^^^^^^^^^^^
@@ -188,6 +192,8 @@ We experimented with creating a separate approvers group and modifying the enrol
   While that isn't common, it seems like something we'll need eventually.
 
 We've therefore stayed with putting approvers in ``CO:admins`` and asking them not to change the configuration.
+
+We would like to whitelist anyone who can authenticate via specific US institutions or can verify an email address at one of those institutions so that they don't need to be explicitly approved, but we have so far not been able to find a good way to implement this in COmanage.
 
 Group management
 ----------------
@@ -478,7 +484,7 @@ Originally, CC-IN2P3 wanted to avoid using LDAP and expose user metadata via Key
 When we discovered that it was not possible for Keycloak to provide groups with their GIDs, Gafaelfawr implemented limited support for API calls to the ForgeRock Identity Management Server to retrieve the GID of a group.
 
 CC-IN2P3 eventually switched to LDAP for user metadata, which is ideal since that's the mechanism used in other places that don't use GitHub.
-We expect to drop ForgeRock support in an upcoming release.
+We therefore dropped ForgeRock support in Gafaelfawr.
 
 User private groups
 -------------------
@@ -641,7 +647,7 @@ There are a few drawbacks to Kopf, unfortunately:
   Writing tests with Kopf also requires pausing the foreground test for an indeterminate amount of time until the background operator finishes, since there is no way for the operator to signal that it's done.
   That means tests have to be littered with arbitrary delays and take longer to run than they would otherwise.
 
-.. _Minikube: https://minikube.sigs.k8s.io/docs/
+  .. _Minikube: https://minikube.sigs.k8s.io/docs/
 
 - Kopf allows handlers to return information that should be stored in the ``status`` field of the Kubernetes object, but the key under which that information is stored is forced to match the name of the handler function.
   Object create and update handlers take the same signature, but timer handlers do not, so there is no way to store the state from the last modification and the state from a periodic recheck in the same fields in the object.
