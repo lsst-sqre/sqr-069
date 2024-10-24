@@ -906,16 +906,16 @@ __ https://datatracker.ietf.org/doc/html/rfc7519
 
 __ https://datatracker.ietf.org/doc/html/rfc7617
 
-`RFC 7807: Problem Details for HTTP APIs`__
-    Defines a "problem detail" as a way to carry machine-readable details of errors in a HTTP response.
-    This avoids the need to define new error response formats for HTTP APIs.
-
-__ https://datatracker.ietf.org/doc/html/rfc7807
-
 `RFC 8288: Web Linking`__
     The standard for the ``Link`` HTTP header and its relation types.
 
 __ https://datatracker.ietf.org/doc/html/rfc8288
+
+`RFC 9457: Problem Details for HTTP APIs`__
+    Defines a "problem detail" as a way to carry machine-readable details of errors in a HTTP response.
+    This avoids the need to define new error response formats for HTTP APIs.
+
+__ https://datatracker.ietf.org/doc/html/rfc9457
 
 Other documentation
 -------------------
