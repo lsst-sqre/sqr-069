@@ -124,11 +124,6 @@ See :sqr:`055` for the details of the current COmanage configuration.
 Enrollment flow
 ---------------
 
-It's possible to then configure a return URL to which the user goes after enrollment is complete, but that's probably not that useful when we're using an approval flow.
-
-We will need to customize the email messages and web pages presented as part of the approval flow.
-This has not yet been done.
-
 In order to save work for the approver, all users are automatically added to the general users group (``g_users``) when approved.
 Additional group memberships must be added manually by the approver or by some other group owner.
 
@@ -140,10 +135,11 @@ Names
 ^^^^^
 
 Ideally, we would prompt for two names: the nickname by which the person wants to be known, and the full name they use in professional contexts for matching and approval purposes.
+
 We do not want to parse either name into components.
 This creates `tons of cultural problems <https://www.kalzumeus.com/2010/06/17/falsehoods-programmers-believe-about-names/>`__.
 
-Unfortunately, COmanage's data model requires names be broken into components and doesn't have a data model that neatly matches this ideal.
+Unfortunately, COmanage's data model requires names be broken into components and doesn't have a data model that neatly matches this design goal.
 For now, we are restricting the name fields to given and family name, making family name optional, and adding explanatory text asking people to use the name they use in professional contexts.
 
 We may revisit this later.
@@ -406,7 +402,8 @@ This choice forgoes the following advantages of using JWTs internally:
 - Some third-party services may consume JWTs directly and expect to be able to validate them.
   JWTs, via OpenID Connect, are also the standard way of delegating authentication to a different site.
   Gafaelfawr therefore had to implement OpenID Connect authentication (with separate JWT tokens) as an additional authentication and authorization flow unrelated to the token authentication system used by most routes.
-  However, this implementation can be minimal and is limited in scope to only IDACs and Science Platform services that require OpenID Connect (which are expected to be a small subset of services and may not be required in the federated identity deployment case at all).
+  However, this implementation can be minimal and is limited in scope to only IDACs and Science Platform services that require OpenID Connect (which are expected to be a small subset of services and may not be required in the federated identity deployment case at all), and is also limited to only the ID token.
+  The access token returned by OpenID Connect is a regular opaque token.
 
 - If a user API call sets off a cascade of numerous internal API calls, avoiding the need to consult a data store to validate opaque tokens could improve performance.
   JWTs can be verified directly without needing any state other than the (relatively unchanging) public signing key.
@@ -428,25 +425,6 @@ The current approach uses a compromise of dynamic group membership, static scope
 
 Regardless of the group membership approach taken by the authentication system, Notebook Aspect notebooks would still have to be relaunched to pick up new or changed group memberships, since the user's GIDs are determined when the notebook pod is launched and are part of the Kubernetes pod definition.
 
-Token scopes
-------------
-
-For user-created API tokens, there will be a balance between the security benefit of more restricted-use tokens and the UI complexity of giving the user a lot of options when creating a token.
-The balance the identity management design strikes is to reserve scopes for controlling all access to a particular service, or controlling admin access to a service versus regular access.
-Controlling access to specific data sets within the service is done with groups, not scopes.
-
-This appears to strike a reasonable balance between allowing users and service configuration to limit the access of delegated tokens, and avoiding presenting the user with too many confusing options when creating a new token.
-This policy is discussed further in :dmtn:`235`.
-
-Originally, all requested scopes for delegated tokens were also added as required scopes for access to a service.
-The intent was to (correctly) prevent delegated tokens from having scopes that the user's authenticating token did not have, thus allowing the user to bypass access controls.
-However, in practice this turned out to be too restrictive.
-The Portal Aspect, a major use of delegated tokens, wanted to request various scopes since it could make use of them if they were available, but users who did not have those scopes should still be able to access the Portal and get restricted functionality.
-
-The default was therefore changed so that the list of delegated scopes was an optional request.
-The delegated token gets all of the requested scopes that its parent token has, but if any are missing, they're left off the scopes for the delegated token but the authentication still succeeds.
-If the service wants the delegated scopes to be mandatory, it can add them to the authorization scopes so that a user must have all of the scopes or is not allowed to access the service.
-
 HTTP Basic Authentication
 -------------------------
 
@@ -461,67 +439,6 @@ Previously, the user had to put ``x-oauth-basic`` in whatever field wasn't the t
 This was reportedly based on GitHub support for HTTP Basic Authentication.
 However, GitHub currently recognizes tokens wherever they're put and does not require the ``x-oauth-basic`` string, so Gafaelfawr was switched to match.
 This approach is easier to document and explain.
-
-OpenID Connect and LDAP
------------------------
-
-The current implementation of OpenID Connect as a source of authentication supports nearly-arbitrary combinations of data from LDAP and data from the OpenID Connect ID token.
-Previously, different Science Platform environments used different combinations of sources of data.
-This is no longer the case; now, all deployments that use OpenID Connect get all of the user metadata from LDAP.
-
-One of the problems with getting data from the ID token is that Keycloak, a very common OpenID Connect provider, cannot provide GID information in the ID token (at least with standard LDAP configurations).
-It can be configured to provide a list of groups and a list of GIDs, but not correlate the two or keep the same ordering.
-Since the Science Platform relies on GIDs for correct operation, in practice direct queries to LDAP are required.
-
-We therefore plan on limiting authentication support to three configurations: GitHub, COmanage plus LDAP, or OpenID Connect plus LDAP.
-For the last two methods, only the username from the OpenID Connect ID token will be used, and all other data will be retrieved from LDAP.
-
-ForgeRock support
------------------
-
-The CC-IN2P3 deployment of the Science Platform uses ForgeRock Identity Management as its ultimate source of some identity information.
-Originally, CC-IN2P3 wanted to avoid using LDAP and expose user metadata via Keycloak.
-When we discovered that it was not possible for Keycloak to provide groups with their GIDs, Gafaelfawr implemented limited support for API calls to the ForgeRock Identity Management Server to retrieve the GID of a group.
-
-CC-IN2P3 eventually switched to LDAP for user metadata, which is ideal since that's the mechanism used in other places that don't use GitHub.
-We therefore dropped ForgeRock support in Gafaelfawr.
-
-User private groups
--------------------
-
-Ideally, we'd prefer to implement user private groups (where each user is a member of a group with a matching name and the same GID as the user's UID) for all deployments.
-Using user private groups allows all access control to be done based on group membership, which is part of the authorization design for Butler (see :dmtn:`182`).
-Unfortunately, when a local identity management system is in play, there's no good way to do this because there's no safe GID to assign to the user.
-The local identity management system should also be canonical for the user's primary GID.
-
-We therefore implement user private groups only for the federated identity case, where we control the UID and GID spaces and can reserve all the GIDs that match UIDs for user private groups and always synthesize the group, and for the GitHub case, where we blindly use the user ID as a group ID for the user private group and the primary GID.
-For GitHub, this is not ideal since it may conflict with a team ID and thus a regular group ID, but given the small number of users and the large ID space, we're hoping we won't have a conflict.
-
-These groups are not managed in COmanage or GitHub.
-They are synthesized by Gafaelfawr in response to queries about the user.
-
-For deployments with a local identity management system, since the user's GIDs may have to correspond to expected GIDs for file systems maintained outside the scope of the Science Platform and requiring compatibility with other local infrastructure, we do not attempt to implement user private groups.
-Either they are provided by the local identity management system, or they're not.
-
-GIDs
-----
-
-The initial implementation of the identity management system assigned a UID but not a primary GID, only GIDs for each group.
-Instead, the Notebook Aspect blindly assumed that it could use a GID equal to the UID when spawning lab pods, and no other part of the system used a primary GID.
-
-However, this approach did not work for the USDF, where UID and GID spaces overlap, and users are already assigned a primary GID by the local identity management system.
-Blindly copying the UID caused lab pods to be running with unexpected GIDs that may overlap with other groups.
-
-The concept (and data element) of a primary GID was introduced to solve this problem and added to the other types of deployments.
-For GitHub and federated identity deployments, this is simple since they use user private groups with a GID matching the UID, so that GID (equal to the UID) can also be made the primary GID.
-
-We considered making the primary GID field optional, and it still formally is within the Gafaelfawr data model, but we expect to make it mandatory in the future.
-Currently, the Notebook Aspect still sets the GID to the same as the UID if the primary GID is not set, but we expect to drop that behavior in the future and simply require a primary GID be set in the same way that a UID must be set.
-
-We also at first attempted to enforce a rule that every group have a GID, and groups without GIDs were ignored.
-Unfortunately, CC-IN2P3's deployment using Keycloak only had a list of groups available, not GIDs, and they still needed to use those groups to calculate scopes.
-We therefore made the GID optional and allowed groups without GIDs to count for scopes.
-However, in practice CC-IN2P3 ended up needing the GIDs for groups for the Notebook Aspect, so this support is also expected to be removed in the future.
 
 OpenID Connect flow
 -------------------
@@ -560,6 +477,133 @@ We never ended up using the Gafaelfawr integration, instead using username and p
 InfluxDB 2.0 then dropped this authentication mechanism, so we removed the Gafaelfawr support.
 Hopefully, future InfluxDB releases will be able to use the OpenID Connect support.
 
+Authorization
+=============
+
+Token scopes
+------------
+
+For user-created API tokens, there will be a balance between the security benefit of more restricted-use tokens and the UI complexity of giving the user a lot of options when creating a token.
+The balance the identity management design strikes is to reserve scopes for controlling all access to a particular service, or controlling admin access to a service versus regular access.
+Controlling access to specific data sets within the service is done with groups, not scopes.
+
+This appears to strike a reasonable balance between allowing users and service configuration to limit the access of delegated tokens, and avoiding presenting the user with too many confusing options when creating a new token.
+This policy is discussed further in :dmtn:`235`.
+
+Originally, all requested scopes for delegated tokens were also added as required scopes for access to a service.
+The intent was to (correctly) prevent delegated tokens from having scopes that the user's authenticating token did not have, thus allowing the user to bypass access controls.
+However, in practice this turned out to be too restrictive.
+The Portal Aspect, a major use of delegated tokens, wanted to request various scopes since it could make use of them if they were available, but users who did not have those scopes should still be able to access the Portal and get restricted functionality.
+
+The default was therefore changed so that the list of delegated scopes was an optional request.
+The delegated token gets all of the requested scopes that its parent token has, but if any are missing, they're left off the scopes for the delegated token but the authentication still succeeds.
+If the service wants the delegated scopes to be mandatory, it can add them to the authorization scopes so that a user must have all of the scopes or is not allowed to access the service.
+
+User metadata
+=============
+
+OpenID Connect and LDAP
+-----------------------
+
+The initial implementation of OpenID Connect as a source of authentication supported nearly-arbitrary combinations of data from LDAP and data from the OpenID Connect ID token.
+Previously, different Science Platform environments used different combinations of sources of data.
+This is no longer the case; now, all deployments that use OpenID Connect get all of the user metadata from LDAP, and Gafaelfawr no longer supports getting information other than the username from the ID token.
+
+One of the problems with getting data from the ID token is that Keycloak, a very common OpenID Connect provider, cannot provide GID information in the ID token (at least with standard LDAP configurations).
+It can be configured to provide a list of groups and a list of GIDs, but not correlate the two or keep the same ordering.
+Since the Science Platform relies on GIDs for correct operation, in practice direct queries to LDAP are required.
+
+We therefore limited authentication support to only three configurations: GitHub, COmanage plus LDAP, or OpenID Connect plus LDAP.
+For the last two methods, only the username from the OpenID Connect ID token is used, and all other data will be retrieved from LDAP.
+
+GIDs
+----
+
+The initial implementation of the identity management system assigned a UID but not a primary GID, only GIDs for each group.
+Instead, the Notebook Aspect blindly assumed that it could use a GID equal to the UID when spawning lab pods, and no other part of the system used a primary GID.
+
+This approach did not work for the USDF, where UID and GID spaces overlap, and users are already assigned a primary GID by the local identity management system.
+Blindly copying the UID caused lab pods to be running with unexpected GIDs that could overlap with other groups.
+
+The concept (and data element) of a primary GID was introduced to solve this problem and added to the other types of deployments.
+For GitHub and federated identity deployments, they use user private groups with a GID matching the UID, so that GID (equal to the UID) can also be made the primary GID.
+
+We considered making the primary GID field optional, and it still formally is within the Gafaelfawr data model, but we expect to make it mandatory in the future.
+The Notebook Aspect requires the primary GID field be set.
+
+We also at first attempted to enforce a rule that every group have a GID, and groups without GIDs were ignored.
+Unfortunately, CC-IN2P3's deployment using Keycloak only had a list of groups available, not GIDs, and they still needed to use those groups to calculate scopes.
+We therefore made the GID optional and allowed groups without GIDs to count for scopes.
+However, in practice CC-IN2P3 ended up needing the GIDs for groups for the Notebook Aspect, so this support is also expected to be removed in the future.
+
+ForgeRock support
+-----------------
+
+The CC-IN2P3 deployment of the Science Platform uses ForgeRock Identity Management as its ultimate source of some identity information.
+Originally, CC-IN2P3 wanted to avoid using LDAP and expose user metadata via Keycloak.
+When we discovered that it was not possible for Keycloak to provide groups with their GIDs, Gafaelfawr implemented limited support for API calls to the ForgeRock Identity Management Server to retrieve the GID of a group.
+
+CC-IN2P3 eventually switched to LDAP for user metadata, which is ideal since that's the mechanism used in other places that don't use GitHub.
+We therefore dropped ForgeRock support in Gafaelfawr.
+
+User private groups
+-------------------
+
+Ideally, we'd prefer to implement user private groups (where each user is a member of a group with a matching name and the same GID as the user's UID) for all deployments.
+Using user private groups allows all access control to be done based on group membership, which is part of the authorization design for Butler (see :dmtn:`182`).
+Unfortunately, when a local identity management system is in play, there's no good way to do this because there's no safe GID to assign to the user.
+The local identity management system should also be canonical for the user's primary GID.
+
+We therefore implement user private groups only for the federated identity case, where we control the UID and GID spaces and can reserve all the GIDs that match UIDs for user private groups and always synthesize the group, and for the GitHub case, where we blindly use the user ID as a group ID for the user private group and the primary GID.
+These user-private groups are not managed in COmanage or GitHub.
+They are synthesized by Gafaelfawr in response to queries about the user.
+For GitHub, this is not ideal since it may conflict with a team ID and thus a regular group ID, but given the small number of users and the large ID space, we're hoping we won't have a conflict.
+
+For deployments with a local identity management system, since the user's GIDs may have to correspond to expected GIDs for file systems maintained outside the scope of the Science Platform and requiring compatibility with other local infrastructure, we do not attempt to implement user private groups.
+Either they are provided by the local identity management system, or they're not.
+
+Ingress integration
+===================
+
+Private ingress routes
+----------------------
+
+Gafaelfawr has two dedicated endpoints that are used by ingress-nginx_, via the ``auth-url`` annotation, to make an auth subrequest for each incoming request without cached authentication information.
+One handles authenticated ingresses and one handles anonymous ingresses, which only need redaction of the ``Cookie`` and ``Authorization`` headers to avoid leaking tokens (see :dmtn:`193`).
+
+.. _ingress-nginx: https://kubernetes.github.io/ingress-nginx/
+
+Originally, these routes were exposed to users directly via the Gafaelfawr Kubernetes ``Ingress``.
+Users were not intended to use them, but direct accesses from users were relatively harmless.
+The worst that a user could do is create new notebook or internal tokens for themselves with the same scopes and lifetime as their session token, which was not ideal but not obviously dangerous.
+
+Once restricted service-to-service authentication support was added, this changed.
+Some services, such as the UWS storage service described in :sqr:`096`, need to allow access on behalf of a user from other services, but should not allow direct access from users.
+Direct access could break the underlying data model or even cause security problems.
+
+To address this, we moved these routes to a prefix that wasn't exposed outside the cluster via the Gafaelfawr ``Ingress`` and changed the ``Ingress`` resources for protected services to use the internal URL of the Gafaelfawr ``Service`` resource for their auth subrequests.
+The Kubernetes ingress is allowed to contact the ``Service`` directly because it is whitelisted in the Gafaelfawr ``NetworkPolicy``.
+
+This works and solves the problem.
+These routes are now no longer accessible directly to users, and therefore cannot be used to bypass service restrictions by making arbitrary internal tokens.
+However, this caused two problems:
+
+- In order to construct the ``Ingress`` from a ``GafaelfawrIngress``, Gafaelfawr has to know the internal domain of the Kubernetes cluster to construct the URL for the service endpoint.
+  This requires knowing the cluster domain, which unfortunately is not easily knowable inside the cluster.
+  Gafaelfawr assumes the Kubernetes default of ``cluster.local``, but a specific cluster may have changed this to something else.
+  In those cases, Gafaelfawr will have to be configured with its correct internal URL.
+
+- This approach does not work with vCluster_ clusters when the ingress pod is running in the host cluster outside of the vCluster.
+  In this case, the annotation on the ``Ingress`` inside the vCluster will references the service within that cluster, but that service is not available under that DNS name in the host cluster.
+  Instead, the host cluster has to refer to it by a much more complicated name that includes the vCluster name mangling and namespacing, which is not knowable to Gafaelfawr inside the vCluster.
+  Either the correct internal URL has to be manually configured or the annotation on the ``Ingress`` has to be transformed when it is copied to the host cluster.
+
+  .. _vCluster: https://www.vcluster.com/
+
+Note that the second case is an unsupported Phalanx_ configuration, which is the true root of the problem.
+Phalanx and Gafaelfawr only support working with an ingress-nginx_ deployment in the same Kubernetes cluster.
+While this issue with having the ingress in the host cluster instead of the vCluster can be worked around, that configuration is likely to cause other problems.
+
 Storage
 =======
 
@@ -577,10 +621,10 @@ Otherwise, it's taken from Firestore, then LDAP, and if all of those fail, it's 
 This model simplifies the handling of each authentication request and moves the logic for handling data sources to the login handler, where it's easy to handle.
 During login, Gafaelfawr chooses whether to store user identity data in Redis based on its configuration of sources for identity information.
 If the data is coming from some external source like Firestore or LDAP, it is not stored in Redis.
-If it is coming from GitHub or from OpenID Connect ID token claims, it is stored in Redis.
+If it is coming from GitHub, it is stored in Redis.
 The precedence logic will then use the right data sources for subsequent requests.
 
-An advantage of this approach in addition to simplicity is that it allows administrators creating tokens via the token API to choose whether they want to override external data sources.
+An advantage of this approach, in addition to simplicity, is that it allows administrators creating tokens via the token API to choose whether they want to override external data sources.
 If they specify identity information for the token, it's stored in Redis and overrides external sources.
 Otherwise, external sources will be used as configured.
 
@@ -588,20 +632,19 @@ Cookies
 -------
 
 Authentication cookies are stored as session cookies, rather than as cookies with an expiration tied to the lifetime of the user's credentials.
-The latter is, on the surface, a more obvious design, but setting an expiration time on a cookie means the cookie is persisted to disk across browser sessions.
-Session cookies are slightly more secure because they are not persisted to disk outside of the session recovery code, and are deleted when the user closes their browser.
-They have the drawback of therefore sometimes requiring more frequent reauthentication.
+This is a somewhat arbitrary choice given that, in practice, session cookies are now always persisted by the browser so that sessions do not end when the user closes the browser.
 
-More importantly, the identity management system needs to store various other information, such as login state, that does not have an obvious expiration time.
+We could switch to cookies with an expiration date.
+However, the identity management system needs to use the cookie to store various other information, such as login state, that does not have an obvious expiration time.
 The token and the other information could be divided into separate cookies, but that adds complexity with little benefit.
 
 Cookies are encrypted primarily to prevent easy tampering or snooping, and because it's easy to do and has no drawbacks.
 The encryption does not protect against theft of the entire cookie.
 The cookie still represents a bearer token, and an attacker who gains access to the cookie can reuse that cookie from another web browser and gain access as the user.
 
-The current design uses domain-scoped cookies and assumes the entire Science Platform deployment runs within a single domain.
-This is not a good long-term assumption, since there are serious web security drawbacks to using a single domain and a single web security context.
-See :dmtn:`193` for more information, including a new proposed design that will likely be adopted in the future.
+The current design uses hostname-scoped cookies and assumes the entire Science Platform deployment runs within a single hostname.
+This is not a good long-term assumption, since there are serious web security drawbacks to using a single hostname and a single web security context.
+See :dmtn:`193` for more details about this problem, including a new proposed design that will likely be adopted in the future.
 
 Database schema migrations
 --------------------------
@@ -616,10 +659,6 @@ This uses a Helm pre-install and pre-upgrade hook to update the schema before sy
 The same approach should be used for bootstrapping a new cluster; if the schema does not already exist, that same hook will create the schema in an empty database.
 
 .. _Phalanx: https://phalanx.lsst.io/
-
-Handling of resources like ``ConfigMap`` and ``Secret`` objects used by Helm pre-install and pre-upgrade hooks is unclear.
-Gafaelfawr errs on the side of caution and uses a separate ``ConfigMap`` and ``VaultSecret`` for the hook that copies information from the regular ``ConfigMap`` and ``VaultSecret``.
-These resources are apparently not automatically deleted by Helm after the hook completes, unlike the ``Job``, so have to be cleaned up manually after a schema migration.
 
 Performing a schema migration while Gafaelfawr is running is not, in general, safe, but Helm doesn't provide a simple mechanism to stop the service, perform the migration, and then restart the service.
 Stopping the service before a migration must be done manually.
@@ -656,12 +695,28 @@ There are a few drawbacks to Kopf, unfortunately:
   We are working around this by using the ``idle`` parameter to the timer, which tells it to avoid acting on objects that have changed in the recent past.
   This hopefully gives the create or update handler long enough to complete.
 
+- Kopf does not currently support conversion webhooks, making it practically impossible to introduce new versions of the schemas for the custom resource definitions.
+  This is discussed further in :ref:`crd-updates`.
+
 We've chosen to live with these drawbacks since using Kopf makes it easier to add more operators.
 We've now also added a ``GafaelfawrIngress`` custom resource, which is used as a template to generate an ``Ingress`` resource with the correct annotations.
 
 The initial implementation of the Kubernetes custom resource support extracted information directly from the dictionary returned by the Kubernetes API.
 In implementing ``GafaelfawrIngress`` support, it became obvious that using Pydantic to do the parsing of the custom object saves a lot of work and tedium.
 This approach is now used for all custom resources.
+
+.. _crd-updates:
+
+Updating custom resource definitions
+------------------------------------
+
+We have accumulated enough changes and bugs in the initial custom resource definitions for ``GafaelfawrIngress`` and ``GafaelfawrServiceToken`` that we would like to introduce new backward-incompatible versions of their schemas and convert all old resources to the new schema.
+
+The method Kubernetes uses to do this is a conversion webhook.
+Once one of those is in place and able to convert from the old schema to the new schema, the new schema can be introduced and set as the storage format, all stored resources converted, all Helm charts updated, and then the old schema version retired.
+
+Unfortunately, Kopf does not currently support conversion webhooks (see the `relevant GitHub issue <https://github.com/nolar/kopf/issues/956>`__).
+We therefore have held off on breaking schema changes and are considering contributing conversion webhook support to Kopf.
 
 Token API
 =========
@@ -722,9 +777,10 @@ We discovered in practice that no application used all of that information, and 
 For example, the user's full name could be UTF-8, but HTTP headers don't allow UTF-8 by default, resulting in errors from the web service plumbing of backend services.
 For another example, the group data exposed was just a list of groups without GIDs, so services that needed the GIDs would need to obtain this another way anyway.
 
-In the current implementation, all of these headers have been dropped except for ``X-Auth-Request-User`` (containing the username), ``X-Auth-Request-Email`` (if we have an email address), and ``X-Auth-Request-Token`` (containing a delegated token, if one was requested).
+In the current implementation, all of these headers have been dropped except for ``X-Auth-Request-User`` (containing the username), ``X-Auth-Request-Email`` (if we have an email address), ``X-Auth-Request-Service`` (containing the associated service if this is an internal token), and ``X-Auth-Request-Token`` (containing a delegated token, if one was requested).
 Username is the most widely used information, and some applications care only about it (for logging purposes, for example) and not any other user information.
 Email is used by the Portal and may be used by other applications.
+Service is used by services that take requests from other services on behalf of users and need to know which service is making the request, such as the proposed UWS storage service (:sqr:`096`).
 
 Applications that need more information than this should request a delegated token, either notebook or internal, and then use that token to make a request to the ``user-info`` route, which will return all of the user's identity information in as JSON, avoiding the parsing and character set problems of trying to insert it into and read it out of headers.
 
