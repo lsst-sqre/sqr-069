@@ -218,9 +218,8 @@ Disadvantages:
 
 .. rst-class:: compact
 
-#. No support for nested groups
 #. Groups cannot own other groups
-#. No support for set math between groups
+#. Very limited support for set math between groups (negative membership is supported, but not much else)
 #. No generic metadata support, so group quotas would need to be maintained separately (presumably by a Rubin-developed service)
 #. There currently is a rendering bug that causes each person to show up three times when editing the group membership, but this will be fixed in the 4.0.0 release due in the second quarter of 2021
 
@@ -231,7 +230,6 @@ Advantages:
 
 .. rst-class:: compact
 
-#. Full support for nested groups
 #. Groups can own other groups
 #. Specializes in set math between groups if we want to do complex authorization calculations
 #. Arbitrary metadata can be added to groups via the API, so we could use Grouper as our data store rather than a local database
