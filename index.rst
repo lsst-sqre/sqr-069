@@ -497,6 +497,19 @@ The default was therefore changed so that the list of delegated scopes was an op
 The delegated token gets all of the requested scopes that its parent token has, but if any are missing, they're left off the scopes for the delegated token but the authentication still succeeds.
 If the service wants the delegated scopes to be mandatory, it can add them to the authorization scopes so that a user must have all of the scopes or is not allowed to access the service.
 
+Required scopes
+---------------
+
+Originally, Gafaelfawr required any authenticated ingress require at least one scope.
+The goal was to prevent accidentally exposing a service to more people than intended by not specifying a scope and assuming any authenticated user should have access.
+
+However, the Wobbly service for UWS job storage (see :sqr:`096`) wanted to use only the ``onlyServices`` option without any specific required scope.
+Any application in the allow list, regardless of the scope used to protect it, should be able to use Wobbly to store UWS jobs.
+Gafaelfawr was therefore modified to allow an explicit empty scope list.
+
+In theory, an empty scope list could be restricted to ``GafaelfawrIngress`` resources that also set ``onlyServices``.
+Currently, an empty scope list is always allowed, but we may make that change if we encounter problems with misuse of the empty scope list without ``onlyServices``.
+
 User metadata
 =============
 
@@ -562,6 +575,24 @@ Either they are provided by the local identity management system, or they're not
 
 Ingress integration
 ===================
+
+``X-Auth-Request`` headers
+--------------------------
+
+Gafaelfawr exposes some information about the user to the protected application via ``X-Auth-Request-*`` headers.
+These can be requested via annotations on the NGINX ingress and then will be filled out in the headers of all relevant requests as received by the service.
+
+The original implementation tried to expose everything Gafaelfawr knew about the user in headers: full name, UID, group membership, all of their token scopes, their client IP, the logic used to authorize them, and so forth.
+We discovered in practice that no application used all of that information, and exposing some of it caused other problems.
+For example, the user's full name could be UTF-8, but HTTP headers don't allow UTF-8 by default, resulting in errors from the web service plumbing of backend services.
+For another example, the group data exposed was just a list of groups without GIDs, so services that needed the GIDs would need to obtain this another way anyway.
+
+In the current implementation, all of these headers have been dropped except for ``X-Auth-Request-User`` (containing the username), ``X-Auth-Request-Email`` (if we have an email address), ``X-Auth-Request-Service`` (containing the associated service if this is an internal token), and ``X-Auth-Request-Token`` (containing a delegated token, if one was requested).
+Username is the most widely used information, and some applications care only about it (for logging purposes, for example) and not any other user information.
+Email is used by the Portal and may be used by other applications.
+Service is used by services that take requests from other services on behalf of users and need to know which service is making the request, such as the proposed UWS storage service (:sqr:`096`).
+
+Applications that need more information than this should request a delegated token, either notebook or internal, and then use that token to make a request to the ``user-info`` route, which will return all of the user's identity information in as JSON, avoiding the parsing and character set problems of trying to insert it into and read it out of headers.
 
 Private ingress routes
 ----------------------
@@ -763,24 +794,6 @@ We would also like to encourage token rotation and use of tokens in only one pla
 
 We therefore dropped support for allowing users to edit their own tokens.
 That support has been kept for administrators, since it's useful for fixing bugs and may be useful in some emergency response situations, and so that we can retain and continue testing the debugged code in case we change our minds later.
-
-``X-Auth-Request`` headers
---------------------------
-
-Gafaelfawr exposes some information about the user to the protected application via ``X-Auth-Request-*`` headers.
-These can be requested via annotations on the NGINX ingress and then will be filled out in the headers of all relevant requests as received by the service.
-
-The original implementation tried to expose everything Gafaelfawr knew about the user in headers: full name, UID, group membership, all of their token scopes, their client IP, the logic used to authorize them, and so forth.
-We discovered in practice that no application used all of that information, and exposing some of it caused other problems.
-For example, the user's full name could be UTF-8, but HTTP headers don't allow UTF-8 by default, resulting in errors from the web service plumbing of backend services.
-For another example, the group data exposed was just a list of groups without GIDs, so services that needed the GIDs would need to obtain this another way anyway.
-
-In the current implementation, all of these headers have been dropped except for ``X-Auth-Request-User`` (containing the username), ``X-Auth-Request-Email`` (if we have an email address), ``X-Auth-Request-Service`` (containing the associated service if this is an internal token), and ``X-Auth-Request-Token`` (containing a delegated token, if one was requested).
-Username is the most widely used information, and some applications care only about it (for logging purposes, for example) and not any other user information.
-Email is used by the Portal and may be used by other applications.
-Service is used by services that take requests from other services on behalf of users and need to know which service is making the request, such as the proposed UWS storage service (:sqr:`096`).
-
-Applications that need more information than this should request a delegated token, either notebook or internal, and then use that token to make a request to the ``user-info`` route, which will return all of the user's identity information in as JSON, avoiding the parsing and character set problems of trying to insert it into and read it out of headers.
 
 Token UI
 ========
