@@ -695,6 +695,30 @@ For this reason, we recommend against leaving ``config.updateSchema`` enabled, e
 
 Alembic works somewhat poorly with async database code, which requires some complex workarounds in the Gafaelfawr source code.
 
+Redis pools
+-----------
+
+Originally, Gafaelfawr had only one Redis server and connection pool.
+Since this stored all Gafaelfawr tokens, it requires underlying persistent storage for all non-trivial environments and backups for production environments.
+This Redis server was used for everything, including ephemeral data such as the temporary OpenID Connect authorization codes.
+
+API rate limiting support greatly increased the number of required Redis writes, since every successful authenticated request for a service with a quota required a write to Redis.
+Redis with persistent storage is potentially slower than Redis using only in-memory storage since it has to write to disk.
+The Redis servers and internal connection pools were therefore split into a persistent Redis server, which uses persistent storage, and an ephemeral Redis server, which uses only in-memory storage and clears its database on restart.
+
+Most data stayed in the persistent Redis.
+The only data that moved to the ephemeral Redis were the temporary OpenID Connect authorization codes and the rate limiting data.
+Quota overrides are stored in and read from the persistent Redis, since there was some chance they would need to survive a Redis restart.
+
+Rate limiting is done via the limits_ library, which uses coredis_ rather than the more standard `Python Redis library <https://redis.readthedocs.io/en/stable/>`__.
+This means there are unfortunately two internal Redis connection pools for the ephemeral Redis, one used for OpenID Connect authentication codes and one underlying the limits library for rate limiting.
+
+.. _limits: https://limits.readthedocs.io/en/stable/
+.. _coredis: https://coredis.readthedocs.io/en/stable/
+
+Gafaelfawr still uses Redis rather than Valkey or some other replacement.
+Its usage continues to fall within the acceptable use under the new non-open-source `Redis license <https://redis.io/legal/licenses/>`__ since Gafaelfawr only uses Redis internally and does not expose it as a service.
+
 Kubernetes resources
 ====================
 
@@ -733,6 +757,12 @@ We've now also added a ``GafaelfawrIngress`` custom resource, which is used as a
 The initial implementation of the Kubernetes custom resource support extracted information directly from the dictionary returned by the Kubernetes API.
 In implementing ``GafaelfawrIngress`` support, it became obvious that using Pydantic to do the parsing of the custom object saves a lot of work and tedium.
 This approach is now used for all custom resources.
+
+Originally, Gafaelfawr didn't do anything special to tag the ingresses that it manages.
+However, we encountered one use case where locating all Gafaelfawr-managed ingresses would be useful (rewriting them with Kyverno_ to allow deployment of Gafaelfawr in an unsupported vCluster_ configuration with ingress-nginx in the parent cluster).
+We therefore added labelling all Gafaelfawr-managed ingresses with the ``app.kubernetes.io/managed-by`` label with value ``Gafaelfawr``.
+
+.. _Kyverno: https://kyverno.io/
 
 .. _crd-updates:
 
@@ -813,6 +843,11 @@ Shipping the UI with Gafaelfawr turned out to be awkward, requiring a lot of bui
 It also made it harder to give it a consistent style and integrate it properly with the rest of the Science Platform UI.
 The plan, therefore, is to move the logic of the UI into another Science Platform JavaScript UI service (possibly the one that provides the front page of the Science Platform) and remove the UI that's shipped with the Gafaelfawr Python application.
 
+Quotas and rate limiting
+========================
+
+For the design and implementation of quotas and rate limiting, including implementation decisions made along the way, see :sqr:`073`.
+
 .. _remaining:
 
 Remaining work
@@ -831,7 +866,7 @@ The **IDM-XXXX** references are to requirements listed in :sqr:`044`, which may 
 - Changing usernames (IDM-0012)
 - Handling duplicate email addresses (IDM-0013)
 - Disallow authentication from pending or frozen accounts (IDM-0107)
-- Logging of COmanage changes to users (IDM-0200)
+- Logging of user authentications (IDM-0200)
 - Logging of authentications via Kafka to the auth history table (IDM-0203)
 - Authentication history per federated identity (IDM-0204)
 - Last used time of user tokens (IDM-0205)
@@ -842,7 +877,10 @@ The **IDM-XXXX** references are to requirements listed in :sqr:`044`, which may 
 - Notifying users of upcoming account expiration (IDM-1004)
 - Notifying users about email address changes (IDM-1101)
 - User class markers (IDM-1103, IDM-1310)
-- Quotas (see :sqr:`073`) (IDM-1200, IDM-1201, IDM-1202, IDM-1203, IDM-1303, IDM-1401, IDM-1402, IDM-2100, IDM-2101, IDM-2102, IDM-2103, IDM-2201, IDM-3003)
+- Users viewing their quotas and quota history (IDM-1201, IDM-1402, IDM-2101)
+- Users requesting new quota grants (IDM-1202, IDM-2102, IDM-3003)
+- Quota grant expiration (IDM-1203, IDM-1303, IDM-2103)
+- Group storage quotas for the group itself (IDM-2100)
 - Administrator verification of email addresses (IDM-1302)
 - User impersonation (see :sqr:`071`) (IDM-1304, IDM-1305, IDM-2202)
 - Review newly-created accounts (IDM-1309)
