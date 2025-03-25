@@ -475,6 +475,30 @@ We never ended up using the Gafaelfawr integration, instead using username and p
 InfluxDB 2.0 then dropped this authentication mechanism, so we removed the Gafaelfawr support.
 Hopefully, future InfluxDB releases will be able to use the OpenID Connect support.
 
+Protecting multiple domains
+---------------------------
+
+Ideally, each Science Platform service with distinct security properties should be separated into its own domain so that the services do not share JavaScript origins.
+This makes various web security attacks much more difficult.
+For a comprehensive discussion, see :dmtn:`193`.
+
+The best implementation of multiple domain support would be to maintain separate authentication credentials for each domain and reauthenticate the user (generally without requiring user credential re-entry) when the user moves from one domain to another.
+This adds some additional complexity but allows the credentials for each domain to be kept isolated and ensures they cannot be used for other domains, even if they somehow leak through Gafaelfawr's attempts to keep them combined to the ingress.
+
+This requires a fairly complex authentication redirect dance between each domain used by the Science Platform, however.
+It would be roughly akin to using the OpenID Connect protocol internally; while some simplifications can be applied, most of the protocol is still needed.
+
+In the short term, to enable multiple domains before that work has been done (and, in particular, to isolate each user JupyterLab instance in a separate per-user domain, since these services have the highest risk of web security attacks), Gafaelfawr optionally implements domain-scoped cookies.
+When enabled, the same authentication cookie will be sent by web browsers to the parent domain of the Science Platform and any child domains.
+
+In this mode, the security of the DNS records for the Science Platform domain are paramount.
+An attacker who can point a child domain of the Science Platform at a compromised server will be able to collect the authentication cookie for the Science Platform and then freely act as any user who visits their server.
+Provided that control of DNS records is maintained, however, this provides multiple domain support at a much lower complexity cost.
+
+In order to protect services against misconfiguration, Gafaelfawr rejects any ingress that accepts cookie authentication if cookies would not be sent to that domain, either because subdomains are not enabled and the ingress is hosted on a different domain or because the ingress is hosted on a domain that is not a subdomain of the Science Platform domain.
+Any such ingress must acknowledge that cookie authentication will not be supported by explicitly disabling it by setting ``config.allowCookies`` to false in the ``GafaelfawrIngress``.
+Bearer token authentication via the ``Authorization`` header will still be supported.
+
 Authorization
 =============
 
@@ -632,6 +656,29 @@ However, this caused two problems:
 Note that the second case is an unsupported Phalanx_ configuration, which is the true root of the problem.
 Phalanx and Gafaelfawr only support working with an ingress-nginx_ deployment in the same Kubernetes cluster.
 While this issue with having the ingress in the host cluster instead of the vCluster can be worked around, that configuration is likely to cause other problems.
+
+``OPTIONS`` requests
+--------------------
+
+Gafaelfawr implements a platform-wide CORS policy that prevents CORS preflight requests from being sent to underlying services unless they come from a hostname within that instance of the Science Platform.
+This ensures that, regardless of the CORS policy implemented by the underlying application, cross-site requests are only allowed within the Science Platform.
+
+This requires Gafaelfawr to analyze ``OPTIONS`` requests and apply a different policy to them.
+The ``OPTIONS`` request from a CORS preflight check will not contain any credentials (either via cookies or the ``Authorization`` header), even if the subsequent request will be authenticated.
+Therefore, Gafaelfawr must accept unauthenticated ``OPTIONS`` requests and, based on the CORS preflight policy, allow them through to the protected service even if it would otherwise require authentication.
+
+The initial implementation of this idea had a serious security vulnerability: Ingress routes that used `authentication caching <https://gafaelfawr.lsst.io/user-guide/gafaelfawringress.html#caching>`__ would cache the successful response to the ``OPTIONS`` request and then allow unauthenticated requests to the underlying service.
+This was because the key used for ``auth_request`` response caching in NGINX used only the contents of the ``Authorization`` and ``Cookie`` headers.
+This was fixed by adding the request method to the cache key, at the small cost of separately caching authentication replies for ``GET``, ``POST``, etc.
+
+The second problem with the initial implementation of this approach was for WebDAV servers.
+The ``OPTIONS`` HTTP method predates CORS and has a valid meaning apart from CORS preflight requests, although it is not widely used or supported.
+However, the one exception is WebDAV, which uses an ``OPTIONS`` request as part of the WebDAV protocol negotiation.
+This, like other ``OPTIONS`` requests, can be sent unauthenticated even if the subsequent requests would be authenticated, but it does not contain the CORS headers.
+
+By default, Gafaelfawr rejects all ``OPTIONS`` requests that are not valid CORS preflight requests (that are missing one of the ``Origin`` or ``Access-Control-Request-Method`` HTTP headers).
+However, to allow WebDAV ``OPTIONS`` requests, ``GafaelfawrIngress`` supports a configuration option, ``config.allowOptions``.
+When set to true, ``OPTIONS`` requests that are not CORS preflight requests and do not contain an ``Origin`` header are allowed through to the underlying service.
 
 Storage
 =======
@@ -858,7 +905,6 @@ The **IDM-XXXX** references are to requirements listed in :sqr:`044`, which may 
 
 .. rst-class:: compact
 
-- Use multiple domains to control JavaScript access and user cookies
 - Restrict OpenID Connect authentication by scope
 - Improved OpenID Connect protocol support
 - Force two-factor authentication for administrators (IDM-0007)
