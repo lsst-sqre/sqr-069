@@ -888,12 +888,25 @@ Gatsby is probably overkill for this small JavaScript UI, but was used because i
 
 Shipping the UI with Gafaelfawr turned out to be awkward, requiring a lot of build system work and noise from updating JavaScript dependencies.
 It also made it harder to give it a consistent style and integrate it properly with the rest of the Science Platform UI.
-The plan, therefore, is to move the logic of the UI into another Science Platform JavaScript UI service (possibly the one that provides the front page of the Science Platform) and remove the UI that's shipped with the Gafaelfawr Python application.
+The token UI was therefore moved into Squareone_, where it is maintained as part of the general landing page and top-level UI for the Rubin Science Platform.
+
+.. _Squareone: https://squareone.lsst.io/
 
 Quotas and rate limiting
 ========================
 
 For the design and implementation of quotas and rate limiting, including implementation decisions made along the way, see :sqr:`073`.
+
+Load testing
+============
+
+Gafaelfawr was load-tested using mobu_ up to 10,000 user token creations, and up to 3,000 active Nublado pods using Gafaelfawr for authentication.
+
+.. _mobu: https://mobu.lsst.io/
+
+The frontend can scale horizontally as much as needed.
+Currently, Redis is probably the primary bottleneck for sheer request volume, since Gafaelfawr relies on a single Redis and Redis is single-threaded and therefore can use at most one CPU to answer requests.
+For more varied use, the database that records each delegated token creation may become a bottleneck, particularly in the current Google Cloud SQL configuration that uses a single shared database server for all the various operational databases underlying a Phalanx environment.
 
 .. _remaining:
 
@@ -912,7 +925,6 @@ The **IDM-XXXX** references are to requirements listed in :sqr:`044`, which may 
 - Changing usernames (IDM-0012)
 - Handling duplicate email addresses (IDM-0013)
 - Disallow authentication from pending or frozen accounts (IDM-0107)
-- Logging of user authentications (IDM-0200)
 - Logging of authentications via Kafka to the auth history table (IDM-0203)
 - Authentication history per federated identity (IDM-0204)
 - Last used time of user tokens (IDM-0205)
@@ -923,7 +935,8 @@ The **IDM-XXXX** references are to requirements listed in :sqr:`044`, which may 
 - Notifying users of upcoming account expiration (IDM-1004)
 - Notifying users about email address changes (IDM-1101)
 - User class markers (IDM-1103, IDM-1310)
-- Users viewing their quotas and quota history (IDM-1201, IDM-1402, IDM-2101)
+- Users viewing their quota history (IDM-1402)
+- Group mmembers viewing the quota associated with a group (IDM-2101)
 - Users requesting new quota grants (IDM-1202, IDM-2102, IDM-3003)
 - Quota grant expiration (IDM-1203, IDM-1303, IDM-2103)
 - Group storage quotas for the group itself (IDM-2100)
@@ -939,7 +952,6 @@ The **IDM-XXXX** references are to requirements listed in :sqr:`044`, which may 
 - Groups owned by other groups (IDM-2009)
 - Logging of group changes (IDM-2300, IDM-2301, IDM-2302, IDM-2303, IDM-2304, IDM-2305, IDM-4002)
 - API to COmanage (IDM-3001)
-- Scale testing (IDM-4000)
 - Scaling of group membership (IDM-4001)
 
 .. _references:
