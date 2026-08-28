@@ -200,7 +200,8 @@ In both cases, there are limitations on how much we can customize the UI without
 .. _Grouper: https://spaces.at.internet2.edu/display/Grouper/Grouper+Wiki+Home
 
 Quota calculation is not directly supported with either system and in either case would need custom development (either via a plugin or via a service that used the group API).
-Recording quota information for groups locally and using the group API (or LDAP) to synchronize the list of groups with the canonical list looks like the easiest path.
+We therefore took the approach of recording quota information for groups locally and calculating that quota in the identity management system.
+See :sqr:`073` for more details.
 
 COmanage Registry groups
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -441,16 +442,34 @@ This approach is easier to document and explain.
 OpenID Connect flow
 -------------------
 
+Client management
+^^^^^^^^^^^^^^^^^
+
+Originally, each OpenID Connect client had to be configured with a client ID, secret, and return URL in an entry in a JSON blob in the Gafaelfawr secret.
+This approach to configuration turned out to be operationally annoying and tedious, since it required manipulating a serialized JSON blob inside the Gafaelfawr secret.
+Even after secret generation was automated from 1Password items in Phalanx_, adding a new client was a tedious multi-step process that required syncing secrets and could only be finished during a maintenance window.
+
+We therefore replaced that approach with an API and a database table managed by Gafaelfawr.
+New OpenID Connect clients are now added via an API call specifying the return URI, a description, and some optional notes.
+The client ID and client secret are randomly generated and returned to the caller in the API result.
+The secret is stored hashed in the database.
+Subsequent uses of the OpenID Connect server by clients verify the password by comparing hashed passwords.
+
+bcrypt was chosen as the password hashing algorithm because there was good, mature Python library support.
+Some other hashing algorithms, such as yescrypt and scrypt, are arguably now more secure, but the Python support for those algorithms was much less mature.
+Since the passwords are randomly generated rather tha user-chosen, the strength of the hashing algorithm is not as important.
+
+Authorization checks
+^^^^^^^^^^^^^^^^^^^^
+
 Currently, when Gafaelfawr acts as an OpenID Connect provider, it does not do any access control and does not check the scopes of the token.
 It relies entirely on the service initiating the OpenID Connect flow to do authorization checks.
 
-Each OpenID Connect client must be configured with a client ID, secret, and return URL in an entry in a JSON blob in the Gafaelfawr secret.
 It would be possible to add a list of required scopes to that configuration and check the authenticating token against those scopes during the OpenID Connect authentication.
 If the user's scopes are not sufficient, Gafaelfawr could reject the authentication with an error.
 
-The configuration of OpenID Connect clients is currently rather obnoxious, since it requires manipulating a serialized JSON blob inside the Gafaelfawr secret.
-It would be nice to have a better way of configuring the client IDs and any supporting configuration, such as a list of scopes, and associating them with client secrets kept in some secure secret store.
-It may be possible to do this with the new Phalanx secrets sync tool using a layout similar to pull secrets, or by moving the configuration other than the secrets into the main Gafaelfawr configuration and merging that with the secrets from a different source (perhaps a convention for secret names, perhaps something like pull-secret).
+Protocol support
+^^^^^^^^^^^^^^^^
 
 The implementation of the OpenID Connect protocol in Gafaelfawr is not fully conformant and doesn't support several optional features.
 See the discussion in :dmtn:`253` for more details.
@@ -471,9 +490,11 @@ This version of InfluxDB_ expects a JWT (using the ``HS256`` algorithm) created 
 
 .. _InfluxDB: https://www.influxdata.com/
 
-We never ended up using the Gafaelfawr integration, instead using username and password because it was easier to manage across deployments.
+We never used this Gafaelfawr integration, since it proved easier to manage simple usernames and passwords across deployments.
 InfluxDB 2.0 then dropped this authentication mechanism, so we removed the Gafaelfawr support.
 Hopefully, future InfluxDB releases will be able to use the OpenID Connect support.
+
+.. _multiple-domains:
 
 Protecting multiple domains
 ---------------------------
@@ -485,7 +506,7 @@ For a comprehensive discussion, see :dmtn:`193`.
 The best implementation of multiple domain support would be to maintain separate authentication credentials for each domain and reauthenticate the user (generally without requiring user credential re-entry) when the user moves from one domain to another.
 This adds some additional complexity but allows the credentials for each domain to be kept isolated and ensures they cannot be used for other domains, even if they somehow leak through Gafaelfawr's attempts to keep them combined to the ingress.
 
-This requires a fairly complex authentication redirect dance between each domain used by the Science Platform, however.
+This domain separation would require a fairly complex authentication redirect dance between each domain used by the Science Platform, however.
 It would be roughly akin to using the OpenID Connect protocol internally; while some simplifications can be applied, most of the protocol is still needed.
 
 In the short term, to enable multiple domains before that work has been done (and, in particular, to isolate each user JupyterLab instance in a separate per-user domain, since these services have the highest risk of web security attacks), Gafaelfawr optionally implements domain-scoped cookies.
@@ -514,7 +535,7 @@ This policy is discussed further in :dmtn:`235`.
 
 Originally, all requested scopes for delegated tokens were also added as required scopes for access to a service.
 The intent was to (correctly) prevent delegated tokens from having scopes that the user's authenticating token did not have, thus allowing the user to bypass access controls.
-However, in practice this turned out to be too restrictive.
+However, in practice this was too restrictive.
 The Portal Aspect, a major use of delegated tokens, wanted to request various scopes since it could make use of them if they were available, but users who did not have those scopes should still be able to access the Portal and get restricted functionality.
 
 The default was therefore changed so that the list of delegated scopes was an optional request.
@@ -524,8 +545,8 @@ If the service wants the delegated scopes to be mandatory, it can add them to th
 Required scopes
 ---------------
 
-Originally, Gafaelfawr required any authenticated ingress require at least one scope.
-The goal was to prevent accidentally exposing a service to more people than intended by not specifying a scope and assuming any authenticated user should have access.
+Originally, Gafaelfawr forced any authenticated ingress to require at least one scope.
+The goal was to prevent accidentally exposing a service to more people than intended by not specifying a scope.
 
 However, the Wobbly service for UWS job storage (see :sqr:`096`) wanted to use only the ``onlyServices`` option without any specific required scope.
 Any application in the allow list, regardless of the scope used to protect it, should be able to use Wobbly to store UWS jobs.
@@ -533,6 +554,19 @@ Gafaelfawr was therefore modified to allow an explicit empty scope list.
 
 In theory, an empty scope list could be restricted to ``GafaelfawrIngress`` resources that also set ``onlyServices``.
 Currently, an empty scope list is always allowed, but we may make that change if we encounter problems with misuse of the empty scope list without ``onlyServices``.
+
+Admins
+------
+
+In the original Gafaelfawr design, the ``admin:token`` scope, which grants unlimited ability to create tokens for and impersonate any user, was not managed through the same group to scope mappings as other scopes.
+Instead, Gafaelfawr maintained an internal list of administrators, stored in the database.
+Gafaelfawr then added the ``admin:token`` scope to the session token of any user found in the admin list, regardless of their reported group membership.
+
+While this worked as designed, having two separate authorization systems was confusing and the list of admins was not well-maintained in practice.
+We did not remember to add new admin users or remove people who had left.
+
+The minor security benefits of reducing the power of the identity management system (only arguable, since the identity management system could still lie about the authenticated user) were not worth the additional complexity.
+This mechanism was therefore removed in favor of using group mappings for the ``admin:token`` scope like any other scope.
 
 User metadata
 =============
@@ -718,9 +752,8 @@ Cookies are encrypted primarily to prevent easy tampering or snooping, and becau
 The encryption does not protect against theft of the entire cookie.
 The cookie still represents a bearer token, and an attacker who gains access to the cookie can reuse that cookie from another web browser and gain access as the user.
 
-The current design uses hostname-scoped cookies and assumes the entire Science Platform deployment runs within a single hostname.
-This is not a good long-term assumption, since there are serious web security drawbacks to using a single hostname and a single web security context.
-See :dmtn:`193` for more details about this problem, including a new proposed design that will likely be adopted in the future.
+Gafaelfawr cookies are scoped either to a hostname or to a domain, depending on whether that instance of the Science Platform is configured to use subdomains.
+See :ref:`multiple-domains` and :dmtn:`193` for more details.
 
 Database schema migrations
 --------------------------
@@ -795,9 +828,6 @@ There are a few drawbacks to Kopf, unfortunately:
   We are working around this by using the ``idle`` parameter to the timer, which tells it to avoid acting on objects that have changed in the recent past.
   This hopefully gives the create or update handler long enough to complete.
 
-- Kopf does not currently support conversion webhooks, making it practically impossible to introduce new versions of the schemas for the custom resource definitions.
-  This is discussed further in :ref:`crd-updates`.
-
 We've chosen to live with these drawbacks since using Kopf makes it easier to add more operators.
 We've now also added a ``GafaelfawrIngress`` custom resource, which is used as a template to generate an ``Ingress`` resource with the correct annotations.
 
@@ -822,7 +852,8 @@ The method Kubernetes uses to do this is a conversion webhook.
 Once one of those is in place and able to convert from the old schema to the new schema, the new schema can be introduced and set as the storage format, all stored resources converted, all Helm charts updated, and then the old schema version retired.
 
 Unfortunately, Kopf does not currently support conversion webhooks (see the `relevant GitHub issue <https://github.com/nolar/kopf/issues/956>`__).
-We therefore have held off on breaking schema changes and are considering contributing conversion webhook support to Kopf.
+It should be possible to implement a conversion webhook in Gafaelfawr proper, but this requires working out some details of TLS handling and webhook registration.
+We have not yet had time to do this work.
 
 Token API
 =========
